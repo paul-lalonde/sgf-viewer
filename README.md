@@ -54,7 +54,8 @@ The panel under the game tree edits the loaded game:
 
 The **vs engine** button (or `e`) plays your board clicks and has KataGo
 answer; engine moves enter the game tree like any move, so the game is a
-savable record. The current position (handicap/setup stones included) is
+savable record. Enabling it with nothing loaded starts a fresh 19×19
+game on the spot. The current position (handicap/setup stones included) is
 replayed to the engine each turn — you can also start from any mid-game
 or problem position. Needs `katago` on PATH (`brew install katago`);
 serve.py finds the newest model and gtp config next to the binary, or

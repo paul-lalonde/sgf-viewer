@@ -294,6 +294,7 @@ function setEngineMode(on) {
   state.engine = on;
   if (on && state.solve) setSolveMode(false);
   $('enginemode').classList.toggle('active', on);
+  if (on && !state.game) startFreshGame(19); // nothing loaded: just start playing
   if (on && state.game) {
     const you = state.game.nextColor() === BLACK ? 'black' : 'white';
     feedback('', `you are ${you} — KataGo (${strengthLabel()}) answers`);
@@ -318,9 +319,15 @@ $('strength').addEventListener('change', () => {
 // Player's click in engine mode: play the move, then ask KataGo to answer.
 function engineClick(x, y) {
   const game = state.game;
-  if (state.engineBusy) return;
+  if (state.engineBusy) {
+    feedback('', 'engine is thinking…');
+    return;
+  }
   const result = game.playAt(x, y);
-  if (!result) return; // occupied
+  if (!result) {
+    feedback('offpath', 'that point is occupied');
+    return;
+  }
   if (result === 'added') setDirty(true);
   tree.setGame(game);
   refresh();
@@ -442,6 +449,11 @@ function newFile() {
   if (state.dirty && !confirm('Discard unsaved changes?')) return;
   const size = parseInt(prompt('Board size:', '19') ?? '', 10);
   if (!size || size < 2 || size > 19) return;
+  startFreshGame(size);
+}
+$('new').addEventListener('click', newFile);
+
+function startFreshGame(size) {
   const today = new Date().toISOString().slice(0, 10);
   state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
   state.file = null;
@@ -456,7 +468,6 @@ function newFile() {
   markCurrentFile();
   refresh();
 }
-$('new').addEventListener('click', newFile);
 
 // ---------- controls ------------------------------------------------------
 
