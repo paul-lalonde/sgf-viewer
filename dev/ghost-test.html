@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<!-- Dev harness: renders the board with ghost stones forced at fixed
+     points (one per color), since headless screenshots can't hover. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ghost stone test</title>
+  <style> #board { width: 500px; aspect-ratio: 1; display: block; } </style>
+</head>
+<body>
+  <canvas id="board"></canvas>
+  <script type="module">
+    import { Board } from '/viewer/board.js';
+    import { BLACK, WHITE, emptyGrid } from '/viewer/colors.js';
+    const board = new Board(document.getElementById('board'), { size: 9 });
+    const grid = emptyGrid(9);
+    grid[2][2] = BLACK;
+    grid[2][3] = WHITE;
+    board.setPosition({ grid, lastMove: null });
+    // force a hover state: black ghost at tengen
+    board.setGhost(BLACK);
+    board.hover = { x: 4, y: 4 };
+    board.draw();
+    // and a second board's worth? single is fine — flip color after 0ms tick
+    // (screenshot captures black ghost; change to WHITE to eyeball that case)
+  </script>
+</body>
+</html>

@@ -133,6 +133,7 @@ function refresh() {
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
+  board.setGhost(state.solve ? game.nextColor() : null);
   tree.update();
   if (state.file) {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
@@ -230,6 +231,7 @@ function setSolveMode(on) {
   state.solve = on;
   $('solvemode').classList.toggle('active', on);
   clearTimeout(state.replyTimer);
+  board.setGhost(on && state.game ? state.game.nextColor() : null);
   if (on && state.game && !state.game.current.children.length) {
     feedback('offpath', 'no solution tree in this file');
   } else {

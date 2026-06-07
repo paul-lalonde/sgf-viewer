@@ -11,8 +11,12 @@ export class Board {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.onPointClick = onPointClick;
+    this.ghostColor = null; // BLACK/WHITE: stone preview follows the pointer
+    this.hover = null;
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
+    canvas.addEventListener('mousemove', (e) => this._handleMove(e));
+    canvas.addEventListener('mouseleave', () => this._handleLeave());
     new ResizeObserver(() => this.draw()).observe(canvas);
   }
 
@@ -27,6 +31,17 @@ export class Board {
   //            marks: [{x, y, type, text?}] (optional)}
   setPosition(position) {
     this.position = position;
+    this.draw();
+  }
+
+  // Show a stone of `color` under the pointer (null disables).
+  setGhost(color) {
+    if (this.ghostColor === color) return;
+    this.ghostColor = color;
+    if (!color) {
+      this.hover = null;
+      this.canvas.style.cursor = '';
+    }
     this.draw();
   }
 
@@ -56,6 +71,7 @@ export class Board {
     this._drawStones(ctx, cell, origin);
     this._drawMarks(ctx, cell, origin);
     this._drawLastMove(ctx, cell, origin);
+    this._drawGhost(ctx, cell, origin);
     ctx.restore();
   }
 
@@ -148,18 +164,65 @@ export class Board {
     ctx.stroke();
   }
 
-  _handleClick(e) {
-    if (!this.onPointClick) return;
+  _drawGhost(ctx, cell, origin) {
+    if (!this.ghostColor || !this.hover) return;
+    const { x, y } = this.hover;
+    if (this.position.grid[y][x] !== EMPTY) return;
+    const r = cell * 0.47;
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(origin + x * cell, origin + y * cell, this.ghostColor === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
+    if (this.ghostColor === BLACK) {
+      ctx.fillStyle = '#000';
+      ctx.fill();
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  _pointFromEvent(e) {
     const rect = this.canvas.getBoundingClientRect();
     const { cell, origin } = this._metrics();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const x = Math.round((mx - origin) / cell);
     const y = Math.round((my - origin) / cell);
-    if (x < 0 || y < 0 || x >= this.size || y >= this.size) return;
+    if (x < 0 || y < 0 || x >= this.size || y >= this.size) return null;
     const dx = mx - (origin + x * cell);
     const dy = my - (origin + y * cell);
-    if (dx * dx + dy * dy <= cell * cell * 0.25) this.onPointClick(x, y);
+    return dx * dx + dy * dy <= cell * cell * 0.25 ? { x, y } : null;
+  }
+
+  _handleClick(e) {
+    if (!this.onPointClick) return;
+    const pt = this._pointFromEvent(e);
+    if (pt) this.onPointClick(pt.x, pt.y);
+  }
+
+  _handleMove(e) {
+    if (!this.ghostColor) return;
+    const pt = this._pointFromEvent(e);
+    const valid = pt && this.position.grid[pt.y][pt.x] === EMPTY ? pt : null;
+    // the ghost replaces the pointer wherever a stone could land
+    this.canvas.style.cursor = valid ? 'none' : '';
+    if (valid?.x !== this.hover?.x || valid?.y !== this.hover?.y) {
+      this.hover = valid;
+      this.draw();
+    }
+  }
+
+  _handleLeave() {
+    if (this.hover) {
+      this.hover = null;
+      this.draw();
+    }
+    this.canvas.style.cursor = '';
   }
 }
 
