@@ -50,6 +50,17 @@ The panel under the game tree edits the loaded game:
 - **new** starts a fresh game record (it asks for the board size); save it
   into the current directory under whatever name you type.
 
+### Tsumego mode
+
+The **tsumego** button (or `t`) switches board clicks to solving: your
+click follows the matching branch of the solution tree, and the computer
+answers with a uniformly random successor move. Feedback above the
+comment: **✓ correct** on a winning leaf (comment containing "correct",
+goproblems-style "RIGHT", or a TE[] annotation), **✗ fail** on any other
+ending, **⊘ off-path** when your move isn't in the tree (the position
+doesn't change). Manual navigation still works for reviewing; it cancels
+a pending computer reply.
+
 Keys: `←`/`→` move, `↑`/`↓` switch variation, `PgUp`/`PgDn` ±10,
 `Home`/`End` start/end, `n`/`p` next/previous file.
 

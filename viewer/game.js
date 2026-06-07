@@ -235,6 +235,18 @@ export function moveOf(node, size) {
   return pt ? { ...pt, color } : { color, pass: true };
 }
 
+// Verdict for a solution-tree leaf, per common tsumego conventions:
+// TE (tesuji) / BM (bad move) annotations win; otherwise a comment
+// containing "correct" (any case) or all-caps "RIGHT" (goproblems
+// style — lowercase "right" is Go prose, e.g. "the right side") marks
+// success, and every unmarked ending is a refutation.
+export function leafVerdict(node) {
+  if ('TE' in node.props) return 'correct';
+  if ('BM' in node.props) return 'fail';
+  const text = (node.props.C || []).join(' ');
+  return /\bcorrect\b/i.test(text) || /\bRIGHT\b/.test(text) ? 'correct' : 'fail';
+}
+
 // A node that just places one stone (AB/AW, no move) — how old mgt/IGS
 // reviews encode demonstration lines. Returns {x, y, color} or null.
 export function singleSetup(node, size) {

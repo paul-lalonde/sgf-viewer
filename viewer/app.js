@@ -2,13 +2,16 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove } from './game.js';
+import { Game, isMove, leafVerdict } from './game.js';
 import { TreeView } from './tree.js';
 import { BLACK, WHITE } from './colors.js';
 
 const $ = (id) => document.getElementById(id);
 
-const state = { dir: '', dirs: [], files: [], file: null, game: null, tool: 'play', dirty: false };
+const state = {
+  dir: '', dirs: [], files: [], file: null, game: null,
+  tool: 'play', dirty: false, solve: false, replyTimer: null,
+};
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
 const tree = new TreeView($('tree'), {
@@ -91,6 +94,8 @@ async function loadFile(name) {
   }
   state.game = game;
   state.file = name;
+  clearTimeout(state.replyTimer);
+  feedback('', '');
   setDirty(false);
   $('savename').value = name.replace(/(\.edit)?\.sgf$/i, '') + '.edit.sgf';
   $('savestatus').textContent = '';
@@ -196,9 +201,14 @@ function chip(cls, text, title) {
 
 // Play tool: follow the matching variation or play a new move there.
 // Mark tools: toggle the mark on the current node.
+// Solve mode: traverse the solution tree with computer replies.
 function onBoardClick(x, y) {
   const game = state.game;
   if (!game) return;
+  if (state.solve) {
+    solveClick(x, y);
+    return;
+  }
   if (state.tool === 'play') {
     const result = game.playAt(x, y);
     if (!result) return;
@@ -214,6 +224,62 @@ function onBoardClick(x, y) {
   refresh();
 }
 
+// ---------- tsumego solve mode ---------------------------------------------
+
+function setSolveMode(on) {
+  state.solve = on;
+  $('solvemode').classList.toggle('active', on);
+  clearTimeout(state.replyTimer);
+  if (on && state.game && !state.game.current.children.length) {
+    feedback('offpath', 'no solution tree in this file');
+  } else {
+    feedback('', '');
+  }
+}
+$('solvemode').addEventListener('click', () => setSolveMode(!state.solve));
+
+// Player's click: follow the matching branch, then judge or let the
+// computer answer. A click with no matching branch is off-path.
+function solveClick(x, y) {
+  const game = state.game;
+  clearTimeout(state.replyTimer);
+  const child = game.childAt(x, y);
+  if (!child) {
+    feedback('offpath', '⊘ off-path');
+    return;
+  }
+  feedback('', '');
+  game.goTo(child);
+  refresh();
+  if (!child.children.length) {
+    judge(child);
+    return;
+  }
+  state.replyTimer = setTimeout(computerReply, 400);
+}
+
+// Unbiased random choice among the successor moves.
+function computerReply() {
+  const game = state.game;
+  if (!game || !state.solve) return;
+  const kids = game.current.children;
+  if (!kids.length) return;
+  const pick = kids[Math.floor(Math.random() * kids.length)];
+  game.goTo(pick);
+  refresh();
+  if (!pick.children.length) judge(pick);
+}
+
+function judge(leaf) {
+  const verdict = leafVerdict(leaf);
+  feedback(verdict === 'correct' ? 'correct' : 'fail', verdict === 'correct' ? '✓ correct' : '✗ fail');
+}
+
+function feedback(cls, msg) {
+  $('feedback').className = cls;
+  $('feedback').textContent = msg;
+}
+
 // ---------- editing -------------------------------------------------------
 
 function setDirty(dirty) {
@@ -221,10 +287,10 @@ function setDirty(dirty) {
   $('save').classList.toggle('dirty', dirty);
 }
 
-for (const btn of document.querySelectorAll('#tools .tool')) {
+for (const btn of document.querySelectorAll('#tools .tool[data-tool]')) {
   btn.addEventListener('click', () => {
     state.tool = btn.dataset.tool;
-    document.querySelector('#tools .active')?.classList.remove('active');
+    document.querySelector('#tools .tool[data-tool].active')?.classList.remove('active');
     btn.classList.add('active');
   });
 }
@@ -304,6 +370,7 @@ const MOVES = {
 for (const [id, fn] of Object.entries(MOVES)) {
   $(id).addEventListener('click', () => {
     if (!state.game) return;
+    clearTimeout(state.replyTimer); // manual navigation halts a pending reply
     fn(state.game);
     refresh();
   });
@@ -333,6 +400,7 @@ const KEYS = {
   n: () => nextFile(1),
   p: () => nextFile(-1),
   f: () => setFilesHidden(!document.body.classList.contains('nofiles')),
+  t: () => setSolveMode(!state.solve),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -340,6 +408,7 @@ document.addEventListener('keydown', (e) => {
   const fn = KEYS[e.key];
   if (!fn) return;
   e.preventDefault();
+  clearTimeout(state.replyTimer); // manual navigation halts a pending reply
   fn();
   refresh();
 });

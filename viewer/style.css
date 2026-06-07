@@ -130,6 +130,16 @@ main {
   padding: 2px 0 6px;
 }
 
+#feedback {
+  min-height: 20px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#feedback.correct { color: #2e7d32; }
+#feedback.fail { color: #c62828; }
+#feedback.offpath { color: #e65100; }
+
 #comment {
   white-space: pre-wrap;
   width: min(76vh, 100%, 760px);
@@ -244,6 +254,8 @@ main {
 
 #tools .tool:hover { background: #f0f0f0; }
 #tools .tool.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+#tools .sep { flex: 1; }
+#solvemode.active { background: #1452b8; border-color: #1452b8; color: #fff; }
 
 #commentbox {
   font: 13px system-ui, sans-serif;
