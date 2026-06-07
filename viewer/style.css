@@ -139,6 +139,21 @@ main {
   padding-bottom: 24px;
 }
 
+/* inline mark conventions in comments (display only) */
+.cmark {
+  font-weight: 600;
+  padding: 0 1px;
+}
+
+.clabel {
+  font: 600 12px ui-monospace, Menlo, monospace;
+  background: #e8f0fe;
+  border: 1px solid #b8cdf0;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 1px;
+}
+
 /* --- game tree --- */
 
 #tree {

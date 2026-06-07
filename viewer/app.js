@@ -134,7 +134,7 @@ function refresh() {
     const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
     history.replaceState(null, '', hash);
   }
-  $('comment').textContent = game.comment();
+  renderComment($('comment'), game.comment(), pos.marks);
   const box = $('commentbox');
   if (document.activeElement !== box) box.value = game.comment();
   $('movecount').textContent =
@@ -159,6 +159,39 @@ function setInfo() {
 
 function showError(msg) {
   $('comment').textContent = `⚠ ${msg}`;
+}
+
+// Render comment text honoring the old review conventions: all-caps mark
+// words become glyphs, and quoted letters that match a label on the
+// current node are set as label chips. Display-only; the SGF is untouched.
+const MARK_WORDS = { TRIANGLE: '△', SQUARE: '□', CIRCLE: '○', CROSS: '✕' };
+
+function renderComment(el, text, marks) {
+  el.textContent = '';
+  const labels = new Set((marks || []).filter((m) => m.type === 'label').map((m) => m.text));
+  const re = /\b(TRIANGLE|SQUARE|CIRCLE|CROSS)\b|'([a-zA-Z])'/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) el.append(text.slice(last, m.index));
+    if (m[1]) {
+      el.append(chip('cmark', MARK_WORDS[m[1]], m[1].toLowerCase()));
+    } else if (labels.has(m[2])) {
+      el.append(chip('clabel', m[2], `label ${m[2]}`));
+    } else {
+      el.append(m[0]); // quoted letter without a matching label: leave as-is
+    }
+    last = m.index + m[0].length;
+  }
+  el.append(text.slice(last));
+}
+
+function chip(cls, text, title) {
+  const span = document.createElement('span');
+  span.className = cls;
+  span.textContent = text;
+  span.title = title;
+  return span;
 }
 
 // Play tool: follow the matching variation or play a new move there.
@@ -200,7 +233,7 @@ let commentTimer = null;
 $('commentbox').addEventListener('input', () => {
   if (!state.game) return;
   state.game.setComment($('commentbox').value);
-  $('comment').textContent = $('commentbox').value;
+  renderComment($('comment'), $('commentbox').value, state.game.position().marks);
   setDirty(true);
   // segments depend on comments: rebuild the tree once typing pauses
   clearTimeout(commentTimer);
