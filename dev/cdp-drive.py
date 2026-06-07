@@ -87,42 +87,20 @@ def main():
         js("document.getElementById('enginemode').click()")  # mode off again
         time.sleep(0.2)
 
-        # --- scenario 2: vs engine within a problem file ---
-        print("files loaded:", js("document.querySelectorAll('#filelist .entry').length"))
-        # open a problem file by clicking it in the browser pane
-        js("[...document.querySelectorAll('#filelist .entry')].find(e => e.textContent === 'tsumego/').click()")
-        time.sleep(0.5)
-        js("[...document.querySelectorAll('#filelist .entry')].find(e => e.textContent === 'gogameguru-easy/').click()")
-        time.sleep(0.5)
-        js("[...document.querySelectorAll('#filelist .entry')].find(e => e.textContent.endsWith('.sgf')).click()")
-        time.sleep(0.8)
-        print("file loaded:", js("document.title"))
-
-        # enable vs engine mode
-        js("document.getElementById('enginemode').click()")
+        # --- scenario 2: score estimate on the current position ---
+        # (stay on this fresh game so no file-load confirm() can block us)
+        js("document.getElementById('scorebtn').click()")
+        time.sleep(3)
+        print("S2 score active:", js("document.getElementById('scorebtn').classList.contains('active')"))
+        print("S2 feedback:", js("document.getElementById('feedback').textContent"))
+        import base64
+        shot = cmd("Page.captureScreenshot")["data"]
+        with open("/tmp/sgf-score.png", "wb") as f:
+            f.write(base64.b64decode(shot))
+        print("S2 screenshot saved")
+        js("document.getElementById('scorebtn').click()")  # toggle off
         time.sleep(0.3)
-        print("engine mode active:", js("document.getElementById('enginemode').classList.contains('active')"))
-        print("feedback:", js("document.getElementById('feedback').textContent"))
-        print("movecount before click:", js("document.getElementById('movecount').textContent"))
-
-        # click tengen on the board canvas
-        clicked = js("""
-          (() => {
-            const c = document.getElementById('board');
-            const r = c.getBoundingClientRect();
-            const size = 19, cell = r.width / (size + 1.7), origin = cell * 1.35;
-            const x = r.left + origin + 9 * cell, y = r.top + origin + 9 * cell;
-            c.dispatchEvent(new MouseEvent('click', {clientX: x, clientY: y, bubbles: true}));
-            return `dispatched at ${Math.round(x)},${Math.round(y)}`;
-          })()
-        """)
-        print("click:", clicked)
-        time.sleep(0.5)
-        print("movecount after click:", js("document.getElementById('movecount').textContent"))
-        print("feedback after click:", js("document.getElementById('feedback').textContent"))
-        time.sleep(4)
-        print("movecount after engine:", js("document.getElementById('movecount').textContent"))
-        print("feedback after engine:", js("document.getElementById('feedback').textContent"))
+        print("S2 after toggle off, active:", js("document.getElementById('scorebtn').classList.contains('active')"))
         ws.close()
     finally:
         proc.terminate()

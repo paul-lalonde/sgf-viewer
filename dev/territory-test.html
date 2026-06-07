@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!-- Dev harness: render the board's territory overlay from a live score
+     estimate of a one-sided 9x9 position, to eyeball _drawOwnership. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>territory overlay test</title>
+  <style> #board { width: 460px; aspect-ratio: 1; display: block; } </style>
+</head>
+<body>
+  <p id="msg">scoring…</p>
+  <canvas id="board"></canvas>
+  <script type="module">
+    import { Board } from '/viewer/board.js';
+    import { BLACK, WHITE, emptyGrid } from '/viewer/colors.js';
+
+    // a 9x9 where black walls off the left, white the right
+    const moves = [
+      ['B','C3'],['B','C5'],['B','C7'],['W','G3'],['W','G5'],['W','G7'],
+      ['B','C2'],['W','G2'],['B','C8'],['W','G8'],
+    ];
+    const grid = emptyGrid(9);
+    const gtp = 'ABCDEFGHJ';
+    for (const [c, v] of moves) {
+      const x = gtp.indexOf(v[0]); const y = 9 - parseInt(v.slice(1));
+      grid[y][x] = c === 'B' ? BLACK : WHITE;
+    }
+    const board = new Board(document.getElementById('board'), { size: 9 });
+    board.setPosition({ grid, lastMove: null });
+
+    const res = await fetch('/api/engine/score', {
+      method: 'POST',
+      body: JSON.stringify({ size: 9, komi: 6.5, moves }),
+    });
+    const data = await res.json();
+    board.setOwnership(data.ownership);
+    document.getElementById('msg').textContent =
+      `lead(white)=${data.lead.toFixed(1)} — left should be black territory, right white`;
+  </script>
+</body>
+</html>

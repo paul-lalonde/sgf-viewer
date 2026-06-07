@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   dir: '', dirs: [], files: [], file: null, game: null,
   tool: 'play', dirty: false, solve: false, replyTimer: null,
-  engine: false, engineBusy: false,
+  engine: false, engineBusy: false, scoreNode: null,
 };
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
@@ -135,6 +135,9 @@ function refresh() {
   const pos = game.position();
   board.setPosition(pos);
   board.setGhost(state.solve || (state.engine && !state.engineBusy) ? game.nextColor() : null);
+  // the score overlay belongs to one node; drop it once we move away
+  if (state.scoreNode && state.scoreNode !== game.current) clearScore();
+  board.setOwnership(state.scoreNode ? board.ownership : null);
   tree.update();
   if (state.file) {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
@@ -390,6 +393,58 @@ function applyEngineMove(move) {
   refresh();
 }
 
+// ---------- score & territory estimate -------------------------------------
+
+$('scorebtn').addEventListener('click', toggleScore);
+
+function clearScore() {
+  state.scoreNode = null;
+  board.setOwnership(null);
+  $('scorebtn').classList.remove('active');
+}
+
+async function toggleScore() {
+  if (!state.game) return;
+  if (state.scoreNode) { // showing for this node already: turn it off
+    clearScore();
+    feedback('', '');
+    return;
+  }
+  const game = state.game;
+  const { moves, unsupported } = game.engineMoves();
+  if (unsupported) {
+    feedback('offpath', 'position uses AE (cleared points) — score estimate unsupported');
+    return;
+  }
+  feedback('', 'estimating score…');
+  try {
+    const res = await fetch('/api/engine/score', {
+      method: 'POST',
+      body: JSON.stringify({
+        size: game.size,
+        komi: parseFloat(game.rootProp('KM')) || 6.5,
+        moves,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (game !== state.game) return; // user moved on while we waited
+    state.scoreNode = game.current;
+    board.setOwnership(data.ownership);
+    $('scorebtn').classList.add('active');
+    feedback('', scoreText(data.lead));
+  } catch (err) {
+    feedback('fail', `score error: ${err.message}`);
+  }
+}
+
+// whiteLead (positive = White ahead) -> "B+12.5" / "W+3.5" / "even"
+function scoreText(lead) {
+  const r = Math.round(Math.abs(lead) * 2) / 2;
+  const who = lead > 0 ? 'W' : 'B';
+  return `estimated score: ${r === 0 ? 'even' : `${who}+${r}`} (approximate)`;
+}
+
 // ---------- editing -------------------------------------------------------
 
 function setDirty(dirty) {
@@ -516,6 +571,7 @@ const KEYS = {
   f: () => setFilesHidden(!document.body.classList.contains('nofiles')),
   t: () => setSolveMode(!state.solve),
   e: () => setEngineMode(!state.engine),
+  s: () => toggleScore(),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;

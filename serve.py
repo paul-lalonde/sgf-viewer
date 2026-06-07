@@ -71,7 +71,9 @@ class Engine:
             raise RuntimeError(f"no KataGo model under {share} (set KATAGO_MODEL)")
         return models[-1]
 
-    def cmd(self, line):
+    def cmd_lines(self, line):
+        """Send a GTP command, return its full response as a list of
+        non-empty lines (the leading '=' stripped from the first)."""
         self.proc.stdin.write(line + "\n")
         self.proc.stdin.flush()
         lines = []
@@ -86,17 +88,37 @@ class Engine:
                 lines.append(raw)
         if lines[0].startswith("?"):
             raise RuntimeError(f"GTP: {lines[0][1:].strip()} (after: {line})")
-        return lines[0][1:].strip()
+        lines[0] = lines[0][1:].strip()
+        return lines
+
+    def cmd(self, line):
+        return self.cmd_lines(line)[0]
+
+    def _setup(self, payload):
+        self.cmd(f"boardsize {int(payload['size'])}")
+        self.cmd("clear_board")
+        self.cmd(f"komi {float(payload.get('komi', 6.5))}")
+        for color, vertex in payload.get("moves", []):
+            self.cmd(f"play {color} {vertex}")
 
     def genmove(self, payload):
         with self.lock:
             self._apply_profile(payload.get("profile", ""))
-            self.cmd(f"boardsize {int(payload['size'])}")
-            self.cmd("clear_board")
-            self.cmd(f"komi {float(payload.get('komi', 6.5))}")
-            for color, vertex in payload.get("moves", []):
-                self.cmd(f"play {color} {vertex}")
+            self._setup(payload)
             return self.cmd(f"genmove {payload['color']}")
+
+    # Approximate score + per-point territory from the raw neural net
+    # (no search): whiteLead points and a size*size ownership map in
+    # [-1, 1], positive = White, in row-major (top-left first) order.
+    def score(self, payload):
+        with self.lock:
+            self._setup(payload)
+            tokens = " ".join(self.cmd_lines("kata-raw-nn 0")).split()
+        lead = float(tokens[tokens.index("whiteLead") + 1])
+        start = tokens.index("whiteOwnership") + 1
+        n = int(payload["size"]) ** 2
+        ownership = [float(v) for v in tokens[start:start + n]]
+        return {"lead": lead, "ownership": ownership}
 
     # profile "rank_10k" etc. = human-like play at that rank; "" = full
     # strength (the human policy stops choosing the move).
@@ -140,7 +162,10 @@ class ViewerHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         url = urlparse(self.path)
         if url.path == "/api/engine/move":
-            self.engine_move()
+            self.engine_call(lambda e, p: {"move": e.genmove(p)})
+            return
+        if url.path == "/api/engine/score":
+            self.engine_call(lambda e, p: e.score(p))
             return
         if url.path != "/api/save":
             self.send_error(404)
@@ -162,12 +187,11 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
-    def engine_move(self):
+    def engine_call(self, run):
         length = int(self.headers.get("Content-Length", 0))
         try:
             payload = json.loads(self.rfile.read(length))
-            move = engine().genmove(payload)
-            body = json.dumps({"move": move}).encode()
+            body = json.dumps(run(engine(), payload)).encode()
             status = 200
         except Exception as err:  # surface engine trouble to the UI
             body = json.dumps({"error": str(err)}).encode()

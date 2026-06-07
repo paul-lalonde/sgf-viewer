@@ -13,6 +13,7 @@ export class Board {
     this.onPointClick = onPointClick;
     this.ghostColor = null; // BLACK/WHITE: stone preview follows the pointer
     this.hover = null;
+    this.ownership = null; // size*size of [-1,1], +White/-Black, or null
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -31,6 +32,13 @@ export class Board {
   //            marks: [{x, y, type, text?}] (optional)}
   setPosition(position) {
     this.position = position;
+    this.draw();
+  }
+
+  // Territory overlay: array of size*size ownership in [-1,1] (positive
+  // White, negative Black, top-left first), or null to clear.
+  setOwnership(ownership) {
+    this.ownership = ownership;
     this.draw();
   }
 
@@ -69,6 +77,7 @@ export class Board {
     this._drawLabels(ctx, cell, origin);
     this._drawStars(ctx, cell, origin);
     this._drawStones(ctx, cell, origin);
+    this._drawOwnership(ctx, cell, origin);
     this._drawMarks(ctx, cell, origin);
     this._drawLastMove(ctx, cell, origin);
     this._drawGhost(ctx, cell, origin);
@@ -135,6 +144,31 @@ export class Board {
           ctx.lineWidth = 1;
           ctx.stroke();
         }
+      }
+    }
+  }
+
+  // Small square at each clearly-owned point, opacity tracking
+  // confidence; black or white by who owns it.
+  _drawOwnership(ctx, cell, origin) {
+    if (!this.ownership) return;
+    const side = cell * 0.38;
+    for (let y = 0; y < this.size; y++) {
+      for (let x = 0; x < this.size; x++) {
+        const v = this.ownership[y * this.size + x];
+        if (Math.abs(v) < 0.12) continue; // skip neutral / dame
+        const cx = origin + x * cell;
+        const cy = origin + y * cell;
+        ctx.save();
+        ctx.globalAlpha = Math.min(0.85, Math.abs(v));
+        ctx.fillStyle = v < 0 ? '#000' : '#fff';
+        ctx.fillRect(cx - side / 2, cy - side / 2, side, side);
+        if (v > 0) {
+          ctx.strokeStyle = '#444'; // outline so white shows on the board
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cx - side / 2, cy - side / 2, side, side);
+        }
+        ctx.restore();
       }
     }
   }

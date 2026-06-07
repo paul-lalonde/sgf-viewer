@@ -71,6 +71,18 @@ that file the engine still plays, but only at max strength. KaTrain (installed v
 the full-featured GUI for the same engine: run `katrain`, and point its
 engine settings at `/opt/homebrew/bin/katago` if it asks.
 
+### Score & territory
+
+The **score** button (or `s`) asks KataGo for an estimate of the current
+position and overlays it: each clearly-owned point gets a small square
+(black or white, opacity tracking confidence; faint/empty in dame), and
+the feedback line shows e.g. `estimated score: B+12.5 (approximate)`.
+It's a fast single raw-net read (no search), so it's an approximation —
+good for whole-board judgment, less reliable in unsettled life-and-death.
+The overlay belongs to one node and clears as soon as you move elsewhere;
+press the button again to dismiss it. Needs the same KataGo setup as play
+mode.
+
 ### Tsumego mode
 
 The **tsumego** button (or `t`) switches board clicks to solving: your
