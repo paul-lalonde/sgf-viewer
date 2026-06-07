@@ -49,8 +49,14 @@ export class TreeView {
     this.svg.setAttribute('class', 'connectors');
     this.wrap.appendChild(this.svg);
     this.container.appendChild(this.wrap);
-    const queue = [{ start: game.root, movesBefore: 0, parent: null, toggle: null, anchor: null }];
-    while (queue.length) this.lines.push(this._buildLine(queue.shift(), queue));
+    // Depth-first: a line's whole subtree precedes its later siblings,
+    // so the packer keeps subtrees vertically contiguous.
+    const build = (spec) => {
+      const subSpecs = [];
+      this.lines.push(this._buildLine(spec, subSpecs));
+      for (const sub of subSpecs) build(sub);
+    };
+    build({ start: game.root, movesBefore: 0, parent: null, toggle: null, anchor: null });
     for (const line of this.lines) this.wrap.appendChild(line.el);
     this._layout();
     this.update();
@@ -218,6 +224,7 @@ export class TreeView {
       !(channels[r] || []).some((x) => x >= x1 - 2 && x <= x2 + 2);
     const channelFree = (r, x) => !(content[r] || []).some(([a, b]) => x - 1 < b && a < x + 1);
 
+    let floor = 0; // rows never decrease in DFS order: subtrees stay contiguous
     for (const line of placed) {
       if (!line.parent) {
         line.row = 0;
@@ -236,7 +243,7 @@ export class TreeView {
         }
         return true;
       };
-      const first = line.parent.row + 1;
+      const first = Math.max(line.parent.row + 1, floor);
       let r = first;
       while (r < first + CLEAN_SCAN && !fitsAt(r, true)) r++;
       if (r === first + CLEAN_SCAN) {
@@ -245,8 +252,9 @@ export class TreeView {
         while (!fitsAt(r, false)) r++;
       }
       line.row = r;
+      floor = r;
       (content[r] = content[r] || []).push([barX - 2, line.left + line.width + PAD]);
-      for (let i = first; i < r; i++) (channels[i] = channels[i] || []).push(barX);
+      for (let i = line.parent.row + 1; i < r; i++) (channels[i] = channels[i] || []).push(barX);
     }
 
     let maxRight = 0;
