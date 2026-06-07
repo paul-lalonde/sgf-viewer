@@ -1,8 +1,22 @@
 # SGF viewer
 
-Minimalist browser-based viewer for the SGF collections in this directory
-(`pro-games/` — 95k pro games, `gtl/` — 10k commented Go Teaching Ladder
-reviews).
+Minimalist browser-based viewer for Go games and teaching material: point
+it at any directory of `.sgf` files and browse, replay, edit, solve
+problems, and play/study against KataGo.
+
+No game records ship in this repo — `serve.py` serves whatever is in its
+working directory, so drop your own `.sgf` collections alongside it (each
+top-level folder shows up in the file browser). Some good free sources:
+
+- **Pro games** — Andries Brouwer's database (public domain):
+  <https://homepages.cwi.nl/~aeb/go/games/>
+- **Commented reviews** — the Go Teaching Ladder (personal use):
+  <https://gtl.xmp.net/>
+- **Tsumego** — classical collections as SGF via
+  <https://tsumego.tasuki.org/> (e.g. github.com/Seon82/tasuki2sgf), and
+  GoGameGuru's weekly problems (CC BY-NC-SA): github.com/gogameguru/go-problems
+
+Mind each source's license before redistributing.
 
 ## Install (macOS)
 
@@ -136,3 +150,8 @@ Keys: `←`/`→` move, `↑`/`↓` switch variation, `PgUp`/`PgDn` ±10,
 The board exposes `setSize`, `setPosition({grid, lastMove})`, and an
 `onPointClick(x, y)` callback — enough surface to drive it from a live game
 engine later.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Applies to the viewer code only; any `.sgf`
+collections you add carry their own licenses (see above).
