@@ -129,9 +129,11 @@ function refresh() {
   const pos = game.position();
   board.setPosition(pos);
   tree.update();
-  // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
-  const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
-  history.replaceState(null, '', hash);
+  if (state.file) {
+    // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
+    const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
+    history.replaceState(null, '', hash);
+  }
   $('comment').textContent = game.comment();
   const box = $('commentbox');
   if (document.activeElement !== box) box.value = game.comment();
@@ -232,6 +234,27 @@ async function saveFile() {
   refresh();
 }
 $('save').addEventListener('click', saveFile);
+
+// Start a fresh game record in the current directory.
+function newFile() {
+  if (state.dirty && !confirm('Discard unsaved changes?')) return;
+  const size = parseInt(prompt('Board size:', '19') ?? '', 10);
+  if (!size || size < 2 || size > 19) return;
+  const today = new Date().toISOString().slice(0, 10);
+  state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
+  state.file = null;
+  setDirty(false);
+  $('savename').value = 'untitled.sgf';
+  $('savestatus').textContent = '';
+  document.title = 'new game — SGF viewer';
+  history.replaceState(null, '', '#');
+  board.setSize(size);
+  tree.setGame(state.game);
+  setInfo();
+  markCurrentFile();
+  refresh();
+}
+$('new').addEventListener('click', newFile);
 
 // ---------- controls ------------------------------------------------------
 

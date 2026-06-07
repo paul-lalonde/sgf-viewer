@@ -47,6 +47,8 @@ The panel under the game tree edits the loaded game:
 - **save** writes the game (UTF-8 SGF) to the current directory under the
   name in the box — defaulting to `<original>.edit.sgf` so the source file
   stays untouched. The dot on the save button marks unsaved changes.
+- **new** starts a fresh game record (it asks for the board size); save it
+  into the current directory under whatever name you type.
 
 Keys: `←`/`→` move, `↑`/`↓` switch variation, `PgUp`/`PgDn` ±10,
 `Home`/`End` start/end, `n`/`p` next/previous file.

@@ -249,7 +249,7 @@ main {
   padding: 3px 7px;
 }
 
-#save {
+#save, #new {
   font: 13px system-ui, sans-serif;
   background: #fff;
   border: 1px solid #bbb;
@@ -258,7 +258,7 @@ main {
   cursor: pointer;
 }
 
-#save:hover { background: #f0f0f0; }
+#save:hover, #new:hover { background: #f0f0f0; }
 #save.dirty::after { content: ' •'; color: #d04030; font-weight: 700; }
 
 #savestatus {
