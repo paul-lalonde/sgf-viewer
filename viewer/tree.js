@@ -13,8 +13,6 @@
 import { isMove, moveOf, singleSetup } from './game.js';
 import { BLACK } from './colors.js';
 
-const COLS = 'ABCDEFGHJKLMNOPQRST'; // no 'I', matching the board labels
-
 // Props that make a node worth showing individually.
 const ANNOTATIONS = ['C', 'TR', 'SQ', 'CR', 'MA', 'LB', 'TB', 'TW', 'AB', 'AW', 'AE', 'M', 'L'];
 
@@ -94,10 +92,10 @@ export class TreeView {
       run = [];
     };
     while (node) {
-      if (isMove(node)) num++;
+      if (stepOf(node, this.game.size)) num++;
       if (!node.parent && !isMove(node)) {
         // root placeholder: redundant, the board shows the setup
-      } else if (collapsible(node)) {
+      } else if (collapsible(node, this.game.size)) {
         run.push({ node, num });
       } else {
         flush();
@@ -137,14 +135,10 @@ export class TreeView {
   _moveEl(node, num) {
     const el = document.createElement('span');
     const mv = moveOf(node, this.game.size);
-    const setup = mv ? null : singleSetup(node, this.game.size);
-    if (mv) {
-      el.className = `move ${mv.color === BLACK ? 'b' : 'w'}`;
-      el.textContent = mv.pass ? `${num}·pass` : String(num);
-    } else if (setup) {
-      // demo-line stone (AB/AW, unnumbered): show its coordinate
-      el.className = `move ${setup.color === BLACK ? 'b' : 'w'}`;
-      el.textContent = COLS[setup.x] + (this.game.size - setup.y);
+    const step = stepOf(node, this.game.size);
+    if (step) {
+      el.className = `move ${step.color === BLACK ? 'b' : 'w'}`;
+      el.textContent = step.pass ? `${num}·pass` : String(num);
     } else {
       el.className = 'move setup';
       el.textContent = '·';
@@ -286,10 +280,24 @@ export class TreeView {
   }
 }
 
-function collapsible(node) {
-  return isMove(node) && node.children.length <= 1 && !annotated(node);
+// A "step" is one stone appearing: a move, or a single-stone AB/AW node
+// (how old mgt/IGS reviews encode demonstration lines). Both are
+// numbered sequentially in the tree.
+function stepOf(node, size) {
+  return moveOf(node, size) || singleSetup(node, size);
+}
+
+function collapsible(node, size) {
+  if (node.children.length > 1) return false;
+  if (isMove(node)) return !annotated(node);
+  if (singleSetup(node, size)) return !annotatedBeyondSetup(node);
+  return false;
 }
 
 function annotated(node) {
   return ANNOTATIONS.some((p) => p in node.props);
+}
+
+function annotatedBeyondSetup(node) {
+  return ANNOTATIONS.some((p) => p !== 'AB' && p !== 'AW' && p in node.props);
 }
