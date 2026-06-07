@@ -1,3 +1,4 @@
 games.tgz
 .DS_Store
 *.edit.sgf
+gtp_logs/

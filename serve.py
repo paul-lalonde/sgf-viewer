@@ -48,7 +48,8 @@ class Engine:
         self.has_human = os.path.exists(human)
         default_cfg = "gtp_human5k_example.cfg" if self.has_human else "gtp_example.cfg"
         config = os.environ.get("KATAGO_CFG") or os.path.join(share, "configs", default_cfg)
-        overrides = ["delayMoveScale=0", "delayMoveMax=0"]  # no artificial thinking delay
+        # no artificial thinking delay; keep KataGo's logs out of the repo
+        overrides = ["delayMoveScale=0", "delayMoveMax=0", "logDir=/tmp/katago-gtp-logs"]
         if os.environ.get("KATAGO_VISITS"):
             overrides.append(f"maxVisits={os.environ['KATAGO_VISITS']}")
         args = [binary, "gtp", "-model", model, "-config", config,
