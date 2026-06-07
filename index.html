@@ -42,6 +42,23 @@
   <aside id="treepane">
     <div id="treehead">game tree</div>
     <div id="tree"></div>
+    <div id="editpane">
+      <div id="tools">
+        <button class="tool active" data-tool="play" title="Play moves">play</button>
+        <button class="tool" data-tool="triangle" title="Triangle mark">&#9651;</button>
+        <button class="tool" data-tool="square" title="Square mark">&#9633;</button>
+        <button class="tool" data-tool="circle" title="Circle mark">&#9675;</button>
+        <button class="tool" data-tool="x" title="X mark">&#10005;</button>
+        <button class="tool" data-tool="label" title="Letter label">abc</button>
+      </div>
+      <textarea id="commentbox" rows="4" spellcheck="false"
+                placeholder="comment for current node"></textarea>
+      <div id="saverow">
+        <input id="savename" spellcheck="false" placeholder="filename.sgf">
+        <button id="save" title="Save to the current directory">save</button>
+      </div>
+      <div id="savestatus"></div>
+    </div>
   </aside>
 
   <script type="module" src="/viewer/app.js"></script>

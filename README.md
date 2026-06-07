@@ -34,6 +34,20 @@ static file serving; everything else is plain ES modules, no build step.
 - Clicking a board intersection follows the variation that plays there.
 - URL hash is bookmarkable: `#gtl/1234-foo.sgf@87` opens a file at move 87.
 
+### Editing
+
+The panel under the game tree edits the loaded game:
+
+- **play** (default tool) — clicking an empty point plays a move with
+  alternating colors: mid-line it opens a new variation, at a line end it
+  appends. Clicking where an existing child plays just follows it.
+- **△ □ ○ ✕ abc** — mark tools: clicking toggles that mark on the current
+  node (`abc` assigns letters in order).
+- The text box edits the current node's comment, live.
+- **save** writes the game (UTF-8 SGF) to the current directory under the
+  name in the box — defaulting to `<original>.edit.sgf` so the source file
+  stays untouched. The dot on the save button marks unsaved changes.
+
 Keys: `←`/`→` move, `↑`/`↓` switch variation, `PgUp`/`PgDn` ±10,
 `Home`/`End` start/end, `n`/`p` next/previous file.
 

@@ -1,7 +1,7 @@
 // game.js — SGF game state and navigation. Rules logic (captures) lives
 // here; rendering does not.
 
-import { parseSGF } from './sgf.js';
+import { parseSGF, writeSGF } from './sgf.js';
 import { EMPTY, BLACK, WHITE, emptyGrid } from './colors.js';
 
 export class Game {
@@ -137,7 +137,83 @@ export class Game {
       return mv && !mv.pass && mv.x === x && mv.y === y;
     });
   }
+
+  // --- editing ---------------------------------------------------------
+
+  // Whose turn at the current node: opposite of the last move played,
+  // else White for handicap games, else Black.
+  nextColor() {
+    for (let n = this.current; n; n = n.parent) {
+      if ('B' in n.props) return WHITE;
+      if ('W' in n.props) return BLACK;
+    }
+    return parseInt(this.rootProp('HA') || '0', 10) > 1 ? WHITE : BLACK;
+  }
+
+  // Play at (x, y): follow an existing child, else add a node — at the
+  // end of a line this appends, mid-line it opens a new variation.
+  // Returns 'followed' | 'added' | null (occupied point).
+  playAt(x, y) {
+    if (this.position().grid[y][x] !== EMPTY) return null;
+    const existing = this.childAt(x, y);
+    if (existing) {
+      this.goTo(existing);
+      return 'followed';
+    }
+    const prop = this.nextColor() === BLACK ? 'B' : 'W';
+    const node = { props: { [prop]: [pt(x, y)] }, parent: this.current, children: [] };
+    this.current.children.push(node);
+    this.goTo(node);
+    return 'added';
+  }
+
+  // Toggle a mark of `type` at (x, y) on the current node.
+  toggleMark(type, x, y) {
+    const point = pt(x, y);
+    if (type === 'label') {
+      this._toggleLabel(point);
+      return;
+    }
+    const prop = MARK_TO_PROP[type];
+    const values = this.current.props[prop] || [];
+    const i = values.indexOf(point);
+    if (i >= 0) values.splice(i, 1);
+    else values.push(point);
+    if (values.length) this.current.props[prop] = values;
+    else delete this.current.props[prop];
+  }
+
+  // Labels get the first unused letter; clicking a labelled point clears it.
+  _toggleLabel(point) {
+    const values = this.current.props.LB || [];
+    const i = values.findIndex((v) => v.startsWith(point + ':'));
+    if (i >= 0) values.splice(i, 1);
+    else {
+      const used = new Set(values.map((v) => v.split(':')[1]));
+      let code = 97;
+      while (used.has(String.fromCharCode(code))) code++;
+      values.push(`${point}:${String.fromCharCode(code)}`);
+    }
+    if (values.length) this.current.props.LB = values;
+    else delete this.current.props.LB;
+  }
+
+  setComment(text) {
+    if (text.trim()) this.current.props.C = [text];
+    else delete this.current.props.C;
+  }
+
+  serialize() {
+    this.root.props.CA = ['UTF-8']; // we always save as UTF-8
+    return writeSGF(this.root);
+  }
 }
+
+function pt(x, y) {
+  return String.fromCharCode(97 + x, 97 + y);
+}
+
+const MARK_TO_PROP = { triangle: 'TR', square: 'SQ', circle: 'CR', x: 'MA' };
 
 export function isMove(node) {
   return 'B' in node.props || 'W' in node.props;

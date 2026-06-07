@@ -76,6 +76,39 @@ function parseValue(p) {
   return out; // unterminated value
 }
 
+// Serialize a node tree back to SGF text.
+export function writeSGF(root) {
+  const out = [];
+  const writeNode = (n) => {
+    out.push(';');
+    for (const [key, values] of Object.entries(n.props)) {
+      out.push(key, ...values.flatMap((v) => ['[', escapeValue(v), ']']));
+    }
+    out.push('\n');
+  };
+  const writeSeq = (start) => {
+    let n = start;
+    writeNode(n);
+    while (n.children.length === 1) {
+      n = n.children[0];
+      writeNode(n);
+    }
+    for (const child of n.children) {
+      out.push('(');
+      writeSeq(child);
+      out.push(')\n');
+    }
+  };
+  out.push('(');
+  writeSeq(root);
+  out.push(')\n');
+  return out.join('');
+}
+
+function escapeValue(v) {
+  return String(v).replace(/[\\\]]/g, (c) => '\\' + c);
+}
+
 function skipSpace(p) {
   while (/\s/.test(p.text[p.pos] || '')) p.pos++;
 }

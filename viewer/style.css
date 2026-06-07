@@ -203,3 +203,66 @@ main {
   padding: 0 4px;
   user-select: none;
 }
+
+/* --- edit panel --- */
+
+#editpane {
+  border-top: 1px solid #ddd;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fafafa;
+}
+
+#tools { display: flex; gap: 4px; }
+
+#tools .tool {
+  font: 13px system-ui, sans-serif;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: #222;
+}
+
+#tools .tool:hover { background: #f0f0f0; }
+#tools .tool.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+#commentbox {
+  font: 13px system-ui, sans-serif;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px 7px;
+  resize: vertical;
+}
+
+#saverow { display: flex; gap: 5px; }
+
+#savename {
+  flex: 1;
+  min-width: 0;
+  font: 12px ui-monospace, Menlo, monospace;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 3px 7px;
+}
+
+#save {
+  font: 13px system-ui, sans-serif;
+  background: #fff;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  padding: 3px 12px;
+  cursor: pointer;
+}
+
+#save:hover { background: #f0f0f0; }
+#save.dirty::after { content: ' •'; color: #d04030; font-weight: 700; }
+
+#savestatus {
+  font-size: 12px;
+  color: #666;
+  min-height: 14px;
+}

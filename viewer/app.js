@@ -8,7 +8,7 @@ import { BLACK, WHITE } from './colors.js';
 
 const $ = (id) => document.getElementById(id);
 
-const state = { dir: '', dirs: [], files: [], file: null, game: null };
+const state = { dir: '', dirs: [], files: [], file: null, game: null, tool: 'play', dirty: false };
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
 const tree = new TreeView($('tree'), {
@@ -74,6 +74,7 @@ const parentOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
 // ---------- file loading --------------------------------------------------
 
 async function loadFile(name) {
+  if (state.dirty && !confirm('Discard unsaved changes?')) return;
   const path = join(state.dir, name);
   const res = await fetch('/' + encodeURI(path).replace(/#/g, '%23'));
   if (!res.ok) {
@@ -90,6 +91,9 @@ async function loadFile(name) {
   }
   state.game = game;
   state.file = name;
+  setDirty(false);
+  $('savename').value = name.replace(/(\.edit)?\.sgf$/i, '') + '.edit.sgf';
+  $('savestatus').textContent = '';
   document.title = `${name} — SGF viewer`;
   board.setSize(game.size);
   tree.setGame(game);
@@ -129,6 +133,8 @@ function refresh() {
   const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
   history.replaceState(null, '', hash);
   $('comment').textContent = game.comment();
+  const box = $('commentbox');
+  if (document.activeElement !== box) box.value = game.comment();
   $('movecount').textContent =
     `move ${pos.moveNumber} / ${game.lineLength()}` +
     ` · captures ● ${pos.captures[BLACK]} ○ ${pos.captures[WHITE]}`;
@@ -153,14 +159,79 @@ function showError(msg) {
   $('comment').textContent = `⚠ ${msg}`;
 }
 
-// Clicking an empty point follows the matching variation, if any.
+// Play tool: follow the matching variation or play a new move there.
+// Mark tools: toggle the mark on the current node.
 function onBoardClick(x, y) {
-  const child = state.game?.childAt(x, y);
-  if (child) {
-    state.game.goTo(child);
-    refresh();
+  const game = state.game;
+  if (!game) return;
+  if (state.tool === 'play') {
+    const result = game.playAt(x, y);
+    if (!result) return;
+    if (result === 'added') {
+      setDirty(true);
+      tree.setGame(game); // structure changed: rebuild
+    }
+  } else {
+    game.toggleMark(state.tool, x, y);
+    setDirty(true);
+    tree.setGame(game); // annotation status affects segments
   }
+  refresh();
 }
+
+// ---------- editing -------------------------------------------------------
+
+function setDirty(dirty) {
+  state.dirty = dirty;
+  $('save').classList.toggle('dirty', dirty);
+}
+
+for (const btn of document.querySelectorAll('#tools .tool')) {
+  btn.addEventListener('click', () => {
+    state.tool = btn.dataset.tool;
+    document.querySelector('#tools .active')?.classList.remove('active');
+    btn.classList.add('active');
+  });
+}
+
+let commentTimer = null;
+$('commentbox').addEventListener('input', () => {
+  if (!state.game) return;
+  state.game.setComment($('commentbox').value);
+  $('comment').textContent = $('commentbox').value;
+  setDirty(true);
+  // segments depend on comments: rebuild the tree once typing pauses
+  clearTimeout(commentTimer);
+  commentTimer = setTimeout(() => {
+    tree.setGame(state.game);
+    refresh();
+  }, 700);
+});
+
+async function saveFile() {
+  const name = $('savename').value.trim();
+  if (!state.game) return;
+  if (!name.toLowerCase().endsWith('.sgf')) {
+    $('savestatus').textContent = '⚠ filename must end in .sgf';
+    return;
+  }
+  const path = join(state.dir, name);
+  const res = await fetch(`/api/save?path=${encodeURIComponent(path)}`, {
+    method: 'POST',
+    body: state.game.serialize(),
+  });
+  if (!res.ok) {
+    $('savestatus').textContent = `⚠ save failed (${res.status})`;
+    return;
+  }
+  setDirty(false);
+  state.file = name; // further saves and n/p navigate relative to the copy
+  $('savestatus').textContent = `saved ${name}`;
+  await loadDir(state.dir); // pick up the new file in the browser
+  document.title = `${name} — SGF viewer`;
+  refresh();
+}
+$('save').addEventListener('click', saveFile);
 
 // ---------- controls ------------------------------------------------------
 
@@ -209,6 +280,7 @@ const KEYS = {
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target.matches('input, textarea')) return; // typing, not navigating
   const fn = KEYS[e.key];
   if (!fn) return;
   e.preventDefault();

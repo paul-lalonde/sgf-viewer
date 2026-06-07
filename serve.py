@@ -19,6 +19,28 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def do_POST(self):
+        url = urlparse(self.path)
+        if url.path != "/api/save":
+            self.send_error(404)
+            return
+        rel = parse_qs(url.query).get("path", [""])[0]
+        root = os.path.abspath(os.getcwd())
+        target = os.path.abspath(os.path.join(root, rel.strip("/")))
+        ok = (
+            os.path.commonpath([root, target]) == root
+            and target.lower().endswith(".sgf")
+            and os.path.isdir(os.path.dirname(target))
+        )
+        if not ok:
+            self.send_error(400, "bad save path")
+            return
+        length = int(self.headers.get("Content-Length", 0))
+        with open(target, "wb") as f:
+            f.write(self.rfile.read(length))
+        self.send_response(204)
+        self.end_headers()
+
     def send_listing(self, rel):
         root = os.path.abspath(os.getcwd())
         target = os.path.abspath(os.path.join(root, rel.strip("/")))
