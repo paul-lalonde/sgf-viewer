@@ -20,8 +20,13 @@
     import { Game } from '/viewer/game.js';
     import { TreeView } from '/viewer/tree.js';
 
+    // The mainline carries TWO forks (after move 3 and after move 8):
+    // the later fork's variation must tuck in directly under the line,
+    // with the earlier fork's variations fanning out below it.
     const sgf = `(;SZ[19];B[pd];W[dp];B[pq]
-      (;W[dd];B[qk]C[main];W[nc];B[pf];W[jd];B[cd];W[cf];B[fc])
+      (;W[dd];B[qk]C[main];W[nc];B[pf];W[jd]
+        (;B[cd];W[cf];B[fc])
+        (;B[fq];W[dn]))
       (;W[nc];B[qf]
         (;W[jd];B[cd];W[df];B[fd])
         (;W[pb];B[qc];W[kc];B[dd];W[cf]))

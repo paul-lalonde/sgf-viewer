@@ -93,6 +93,7 @@ export class TreeView {
     let node = start;
     let num = movesBefore;
     let run = []; // pending collapsible moves: [{node, num}]
+    const forkGroups = []; // variation specs, grouped per fork
     const flush = () => {
       if (run.length) this._emit(el, run);
       run = [];
@@ -110,13 +111,16 @@ export class TreeView {
       if (node.children.length > 1) {
         flush();
         const t = this._addToggle(el, node);
-        for (const child of node.children.slice(1)) {
-          queue.push({ start: child, movesBefore: num, parent: line, toggle: t, anchor: node.children[0] });
-        }
+        forkGroups.push(node.children.slice(1).map((child) => (
+          { start: child, movesBefore: num, parent: line, toggle: t, anchor: node.children[0] }
+        )));
       }
       node = node.children[0];
     }
     flush();
+    // Later forks sit further right and tuck in closest below the line;
+    // earlier forks' variations fan out beneath them.
+    for (const group of forkGroups.reverse()) queue.push(...group);
     return line;
   }
 
