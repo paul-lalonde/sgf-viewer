@@ -145,10 +145,13 @@ export class Game {
 
   // --- editing ---------------------------------------------------------
 
-  // Whose turn at the current node: opposite of the last move played,
-  // else White for handicap games, else Black.
+  // Whose turn at the current node: a PL (player-to-play) property wins,
+  // else opposite of the last move played, else White for handicap
+  // games, else Black.
   nextColor() {
     for (let n = this.current; n; n = n.parent) {
+      const pl = (n.props.PL || [])[0];
+      if (pl) return pl.toUpperCase() === 'W' ? WHITE : BLACK;
       if ('B' in n.props) return WHITE;
       if ('W' in n.props) return BLACK;
     }
