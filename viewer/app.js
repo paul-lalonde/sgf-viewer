@@ -296,13 +296,24 @@ function setEngineMode(on) {
   $('enginemode').classList.toggle('active', on);
   if (on && state.game) {
     const you = state.game.nextColor() === BLACK ? 'black' : 'white';
-    feedback('', `you are ${you} — the engine answers`);
+    feedback('', `you are ${you} — KataGo (${strengthLabel()}) answers`);
   } else {
     feedback('', '');
   }
   refresh();
 }
 $('enginemode').addEventListener('click', () => setEngineMode(!state.engine));
+
+function strengthLabel() {
+  return $('strength').selectedOptions[0]?.textContent ?? 'max';
+}
+
+// remember the chosen strength across sessions
+$('strength').value = localStorage.getItem('sgf-strength') ?? 'rank_10k';
+$('strength').addEventListener('change', () => {
+  localStorage.setItem('sgf-strength', $('strength').value);
+  if (state.engine) feedback('', `KataGo now plays at ${strengthLabel()}`);
+});
 
 // Player's click in engine mode: play the move, then ask KataGo to answer.
 function engineClick(x, y) {
@@ -334,6 +345,7 @@ async function requestEngineMove() {
         komi: parseFloat(game.rootProp('KM')) || 6.5,
         moves,
         color: game.nextColor() === BLACK ? 'B' : 'W',
+        profile: $('strength').value,
       }),
     });
     const data = await res.json();

@@ -54,6 +54,18 @@
         <span class="sep"></span>
         <button class="tool" id="solvemode" title="Tsumego solve mode (t)">tsumego</button>
         <button class="tool" id="enginemode" title="Play against KataGo (e)">vs engine</button>
+        <select id="strength" title="Engine strength (human-rank imitation)">
+          <option value="rank_15k">15 kyu</option>
+          <option value="rank_12k">12 kyu</option>
+          <option value="rank_10k" selected>10 kyu</option>
+          <option value="rank_8k">8 kyu</option>
+          <option value="rank_5k">5 kyu</option>
+          <option value="rank_3k">3 kyu</option>
+          <option value="rank_1k">1 kyu</option>
+          <option value="rank_1d">1 dan</option>
+          <option value="rank_3d">3 dan</option>
+          <option value="">max</option>
+        </select>
       </div>
       <textarea id="commentbox" rows="4" spellcheck="false"
                 placeholder="comment for current node"></textarea>

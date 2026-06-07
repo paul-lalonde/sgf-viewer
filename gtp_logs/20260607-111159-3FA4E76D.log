@@ -1,0 +1,290 @@
+2026-06-07 11:11:59-0700: Running with following config:
+allowResignation = true
+analysisIgnorePreRootHistory = false
+chosenMovePrune = 0
+chosenMoveSubtract = 0
+chosenMoveTemperature = 0.70
+chosenMoveTemperatureEarly = 0.85
+chosenMoveTemperatureHalflife = 80
+chosenMoveTemperatureOnlyBelowProb = 0.01
+delayMoveMax = 0
+delayMoveScale = 0
+dynamicScoreUtilityFactor = 0.00
+humanSLChosenMoveIgnorePass = true
+humanSLChosenMovePiklLambda = 100000000
+humanSLChosenMoveProp = 1.0
+humanSLCpuctExploration = 0.50
+humanSLCpuctPermanent = 0.2
+humanSLOppExploreProbWeightful = 0.0
+humanSLOppExploreProbWeightless = 0.0
+humanSLPlaExploreProbWeightful = 0.0
+humanSLPlaExploreProbWeightless = 0.0
+humanSLProfile = preaz_5k
+humanSLRootExploreProbWeightful = 0.0
+humanSLRootExploreProbWeightless = 0.0
+ignorePreRootHistory = false
+lagBuffer = 1.0
+logAllGTPCommunication = true
+logDir = gtp_logs
+logSearchInfo = true
+logSearchInfoForChosenMove = false
+logToStderr = false
+maxVisits = 40
+nnCacheSizePowerOfTwo = 17
+nnMutexPoolSizePowerOfTwo = 14
+numSearchThreads = 1
+resignConsecTurns = 20
+resignMinMovesPerBoardArea = 0.4
+resignMinScoreDifference = 40
+resignThreshold = -0.99
+rootNumSymmetriesToSample = 2
+rules = japanese
+staticScoreUtilityFactor = 0.30
+subtreeValueBiasFactor = 0.0
+useLcbForSelection = false
+useNoisePruning = false
+useUncertainty = false
+winLossUtilityFactor = 1.0
+
+2026-06-07 11:11:59-0700: GTP Engine starting...
+2026-06-07 11:11:59-0700: KataGo v1.16.4
+2026-06-07 11:11:59-0700: Using Japanese rules initially, unless GTP/GUI overrides this
+2026-06-07 11:11:59-0700: Using 1 CPU thread(s) for search
+2026-06-07 11:11:59-0700: nnRandSeed0 = 9504167930758628584
+2026-06-07 11:11:59-0700: After dedups: nnModelFile0 = /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 11:11:59-0700: Initializing neural net buffer to be size 19 * 19 exactly
+2026-06-07 11:12:00-0700: Loaded neural net with nnXLen 19 nnYLen 19
+2026-06-07 11:12:00-0700: nnRandSeed0 = 1526401608337187546
+2026-06-07 11:12:00-0700: After dedups: nnModelFile0 = /Users/paul/.katago/b18c384nbt-humanv0.bin.gz useFP16 auto useNHWC auto
+2026-06-07 11:12:00-0700: Initializing neural net buffer to be size 19 * 19 exactly
+2026-06-07 11:12:00-0700: Loaded human SL net with nnXLen 19 nnYLen 19
+2026-06-07 11:12:00-0700: Initializing board with boardXSize 19 boardYSize 19
+2026-06-07 11:12:00-0700: Loaded config /opt/homebrew/Cellar/katago/1.16.4/share/katago/configs/gtp_human5k_example.cfg and/or command-line and query overrides
+2026-06-07 11:12:00-0700: Loaded model /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz
+2026-06-07 11:12:00-0700: Loaded human SL model /Users/paul/.katago/b18c384nbt-humanv0.bin.gz
+2026-06-07 11:12:00-0700: Config override: delayMoveMax = 0
+2026-06-07 11:12:00-0700: Config override: delayMoveScale = 0
+2026-06-07 11:12:00-0700: Model name: kata1-b18c384nbt-s9996604416-d4316597426
+2026-06-07 11:12:00-0700: Human SL model name: b18c384nbt-humanv0
+2026-06-07 11:12:00-0700: GTP ready, beginning main protocol loop
+2026-06-07 11:12:00-0700: Controller: kata-set-param humanSLChosenMoveProp 1.0
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: kata-set-param humanSLProfile rank_10k
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: boardsize 19
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: clear_board
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: komi 6.5
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: play B Q16
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: play W D4
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: play B P3
+2026-06-07 11:12:00-0700: = 
+2026-06-07 11:12:00-0700: Controller: genmove W
+2026-06-07 11:12:01-0700: MoveNum: 3 HASH: 3E4F37BB38EB466C5AEBC9294EA29FD6
+   A B C D E F G H J K L M N O P Q R S T
+19 . . . . . . . . . . . . . . . . . . .
+18 . . . . . . . . . . . . . . . . . . .
+17 . . . @ . . . . . . . . . . . . . . .
+16 . . . . . . . . . . . . . . . X1. . .
+15 . . . . . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . . . . . .
+ 8 . . . . . . . . . . . . . . . . . . .
+ 7 . . . . . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . . . . . .
+ 4 . . . O2. . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . X3. . . .
+ 2 . . . . . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . . . . . .
+
+koSIMPLEscoreTERRITORYtaxSEKIsui0komi6.5
+Time taken: 0.630548
+Root visits: 40
+New playouts: 40
+NN rows: 42
+NN batches: 42
+NN avg batch size: 1
+PV: D16 R4 R17 Q17 R16 Q15 S14 C3 C4 D3 F3
+Tree:
+: T   8.71c W   8.43c S   0.28c ( +0.6 L  +0.5) N      40  --  D16 R4 R17 Q17 R16 Q15 S14
+---White(^)---
+D16 : T   9.22c W   8.92c S   0.29c ( +0.7 L  +0.5) LCB    6.54c P 59.25% WF  30.0 PSV      25 N      30  --  D16 R4 R17 Q17 R16 Q15 S14 C3
+D17 : T   8.16c W   7.89c S   0.27c ( +0.6 L  +0.4) LCB  -31.66c P 10.72% WF   4.0 PSV       8 N       4  --  D17 R4 R17 R16
+C16 : T   7.11c W   6.86c S   0.25c ( +0.6 L  +0.4) LCB  -61.55c P  9.80% WF   3.0 PSV       5 N       3  --  C16 R4 F17
+R3  : T   5.60c W   5.42c S   0.18c ( +0.4 L  +0.3) LCB -132.73c P  7.19% WF   2.0 PSV       1 N       2  --  R3 Q5
+
+2026-06-07 11:12:01-0700: = D17
+2026-06-07 11:12:01-0700: Controller: kata-set-param humanSLChosenMoveProp 1.0
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: kata-set-param humanSLProfile rank_15k
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: boardsize 19
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: clear_board
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: komi 6.5
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B Q16
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play W D4
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B P3
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: genmove W
+2026-06-07 11:12:01-0700: MoveNum: 3 HASH: 3E4F37BB38EB466C5AEBC9294EA29FD6
+   A B C D E F G H J K L M N O P Q R S T
+19 . . . . . . . . . . . . . . . . . . .
+18 . . . . . . . . . . . . . . . . . . .
+17 . . . . . . . . . . . . . . . . . . .
+16 . . . @ . . . . . . . . . . . X1. . .
+15 . . . . . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . . . . . .
+ 8 . . . . . . . . . . . . . . . . . . .
+ 7 . . . . . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . . . . . .
+ 4 . . . O2. . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . X3. . . .
+ 2 . . . . . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . . . . . .
+
+koSIMPLEscoreTERRITORYtaxSEKIsui0komi6.5
+Time taken: 0.0183359
+Root visits: 40
+New playouts: 40
+NN rows: 2
+NN batches: 2
+NN avg batch size: 1
+PV: D16 R4 R17 Q17 R16 Q15 S14 C3 C4 D3 F3
+Tree:
+: T   8.72c W   8.44c S   0.28c ( +0.6 L  +0.5) N      40  --  D16 R4 R17 Q17 R16 Q15 S14
+---White(^)---
+D16 : T   9.22c W   8.92c S   0.29c ( +0.7 L  +0.5) LCB    6.54c P 58.69% WF  30.0 PSV      26 N      30  --  D16 R4 R17 Q17 R16 Q15 S14 C3
+D17 : T   8.16c W   7.89c S   0.27c ( +0.6 L  +0.4) LCB  -31.66c P 11.76% WF   4.0 PSV       9 N       4  --  D17 R4 R17 R16
+C16 : T   7.11c W   6.86c S   0.25c ( +0.6 L  +0.4) LCB  -61.55c P  9.50% WF   3.0 PSV       4 N       3  --  C16 R4 F17
+R3  : T   5.60c W   5.42c S   0.18c ( +0.4 L  +0.3) LCB -132.73c P  7.93% WF   2.0 PSV       1 N       2  --  R3 Q5
+
+2026-06-07 11:12:01-0700: = D16
+2026-06-07 11:12:01-0700: Controller: kata-set-param humanSLChosenMoveProp 0
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: boardsize 19
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: clear_board
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: komi 6.5
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B Q16
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play W D4
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B P3
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: genmove W
+2026-06-07 11:12:01-0700: MoveNum: 3 HASH: 3E4F37BB38EB466C5AEBC9294EA29FD6
+   A B C D E F G H J K L M N O P Q R S T
+19 . . . . . . . . . . . . . . . . . . .
+18 . . . . . . . . . . . . . . . . . . .
+17 . . . . . . . . . . . . . . . . . . .
+16 . . . @ . . . . . . . . . . . X1. . .
+15 . . . . . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . . . . . .
+ 8 . . . . . . . . . . . . . . . . . . .
+ 7 . . . . . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . . . . . .
+ 4 . . . O2. . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . X3. . . .
+ 2 . . . . . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . . . . . .
+
+koSIMPLEscoreTERRITORYtaxSEKIsui0komi6.5
+Time taken: 0.0182959
+Root visits: 40
+New playouts: 40
+NN rows: 2
+NN batches: 2
+NN avg batch size: 1
+PV: D16 R4 R17 Q17 R16 Q15 S14 C3 C4 D3 F3
+Tree:
+: T   8.72c W   8.44c S   0.28c ( +0.6 L  +0.5) N      40  --  D16 R4 R17 Q17 R16 Q15 S14
+---White(^)---
+D16 : T   9.22c W   8.92c S   0.29c ( +0.7 L  +0.5) LCB    6.54c P 58.69% WF  30.0 PSV      30 N      30  --  D16 R4 R17 Q17 R16 Q15 S14 C3
+D17 : T   8.16c W   7.89c S   0.27c ( +0.6 L  +0.4) LCB  -31.66c P 11.76% WF   4.0 PSV       4 N       4  --  D17 R4 R17 R16
+C16 : T   7.11c W   6.86c S   0.25c ( +0.6 L  +0.4) LCB  -61.55c P  9.50% WF   3.0 PSV       3 N       3  --  C16 R4 F17
+R3  : T   5.60c W   5.42c S   0.18c ( +0.4 L  +0.3) LCB -132.73c P  7.93% WF   2.0 PSV       2 N       2  --  R3 Q5
+
+2026-06-07 11:12:01-0700: = D16
+2026-06-07 11:12:01-0700: Controller: kata-set-param humanSLChosenMoveProp 1.0
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: kata-set-param humanSLProfile rank_1d
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: boardsize 19
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: clear_board
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: komi 6.5
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B Q16
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play W D4
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: play B P3
+2026-06-07 11:12:01-0700: = 
+2026-06-07 11:12:01-0700: Controller: genmove W
+2026-06-07 11:12:01-0700: MoveNum: 3 HASH: 3E4F37BB38EB466C5AEBC9294EA29FD6
+   A B C D E F G H J K L M N O P Q R S T
+19 . . . . . . . . . . . . . . . . . . .
+18 . . . . . . . . . . . . . . . . . . .
+17 . . . @ . . . . . . . . . . . . . . .
+16 . . . . . . . . . . . . . . . X1. . .
+15 . . . . . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . . . . . .
+13 . . . . . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . . . . . .
+ 8 . . . . . . . . . . . . . . . . . . .
+ 7 . . . . . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . . . . . .
+ 4 . . . O2. . . . . . . . . . . . . . .
+ 3 . . . . . . . . . . . . . . X3. . . .
+ 2 . . . . . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . . . . . .
+
+koSIMPLEscoreTERRITORYtaxSEKIsui0komi6.5
+Time taken: 0.0270465
+Root visits: 40
+New playouts: 40
+NN rows: 4
+NN batches: 4
+NN avg batch size: 1
+PV: D16 R4 R17 Q17 R16 Q15 S14 C3 C4 D3 F3
+Tree:
+: T   8.66c W   8.38c S   0.28c ( +0.6 L  +0.5) N      40  --  D16 R4 R17 Q17 R16 Q15 S14
+---White(^)---
+D16 : T   9.14c W   8.85c S   0.29c ( +0.6 L  +0.5) LCB    6.53c P 59.11% WF  31.0 PSV      20 N      31  --  D16 R4 R17 Q17 R16 Q15 S14 C3
+D17 : T   7.14c W   6.90c S   0.23c ( +0.5 L  +0.4) LCB  -19.05c P 13.32% WF   5.0 PSV      16 N       5  --  D17 R4 R17 R16 Q17
+C16 : T   7.11c W   6.86c S   0.25c ( +0.6 L  +0.4) LCB  -61.55c P  8.86% WF   3.0 PSV       2 N       3  --  C16 R4 F17
+
+2026-06-07 11:12:01-0700: = D17

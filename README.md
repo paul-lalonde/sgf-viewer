@@ -58,10 +58,15 @@ savable record. The current position (handicap/setup stones included) is
 replayed to the engine each turn — you can also start from any mid-game
 or problem position. Needs `katago` on PATH (`brew install katago`);
 serve.py finds the newest model and gtp config next to the binary, or
-set `KATAGO_BIN` / `KATAGO_MODEL` / `KATAGO_CFG` / `KATAGO_VISITS`
-(default 16 — raise for a stronger opponent). Komi comes from the
-file's `KM` (default 6.5). Positions using `AE` (cleared points) can't
-be expressed over GTP and are refused. KaTrain (installed via pipx) is
+set `KATAGO_BIN` / `KATAGO_MODEL` / `KATAGO_CFG` / `KATAGO_VISITS`.
+Komi comes from the file's `KM` (default 6.5). Positions using `AE`
+(cleared points) can't be expressed over GTP and are refused.
+
+The strength dropdown selects a human rank for the engine to imitate
+(15 kyu … 3 dan, or **max**), KaTrain-style: it uses KataGo's human SL
+network (`~/.katago/b18c384nbt-humanv0.bin.gz`, from the KataGo v1.15
+release) with `humanSLProfile = rank_XX`, switched at runtime. Without
+that file the engine still plays, but only at max strength. KaTrain (installed via pipx) is
 the full-featured GUI for the same engine: run `katrain`, and point its
 engine settings at `/opt/homebrew/bin/katago` if it asks.
 

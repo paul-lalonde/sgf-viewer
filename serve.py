@@ -5,10 +5,16 @@ GTP proxy for play mode.
 Usage: python3 serve.py [port]     (default 8000; serves the CWD)
 
 Engine discovery (override with env vars):
-  KATAGO_BIN    katago binary           (default: `which katago`)
-  KATAGO_MODEL  network file            (default: newest kata1*.bin.gz next to the binary)
-  KATAGO_CFG    gtp config              (default: gtp_example.cfg next to the binary)
-  KATAGO_VISITS playout cap per move    (default: 16)
+  KATAGO_BIN         katago binary      (default: `which katago`)
+  KATAGO_MODEL       network file       (default: newest kata1*.bin.gz next to the binary)
+  KATAGO_HUMAN_MODEL human SL network   (default: ~/.katago/b18c384nbt-humanv0.bin.gz)
+  KATAGO_CFG         gtp config         (default: gtp_human5k_example.cfg when the human
+                                         model is present, else gtp_example.cfg)
+  KATAGO_VISITS      playout cap        (default: config's own value)
+
+With the human model loaded, /api/engine/move accepts "profile":
+"rank_10k" etc. for human-like play at that rank, or "" for maximum
+strength.
 """
 import glob
 import json
@@ -36,13 +42,23 @@ class Engine:
             os.path.dirname(os.path.dirname(os.path.realpath(binary))), "share", "katago"
         )
         model = os.environ.get("KATAGO_MODEL") or self._newest_model(share)
-        config = os.environ.get("KATAGO_CFG") or os.path.join(share, "configs", "gtp_example.cfg")
-        visits = os.environ.get("KATAGO_VISITS", "16")
+        human = os.environ.get("KATAGO_HUMAN_MODEL") or os.path.expanduser(
+            "~/.katago/b18c384nbt-humanv0.bin.gz"
+        )
+        self.has_human = os.path.exists(human)
+        default_cfg = "gtp_human5k_example.cfg" if self.has_human else "gtp_example.cfg"
+        config = os.environ.get("KATAGO_CFG") or os.path.join(share, "configs", default_cfg)
+        overrides = ["delayMoveScale=0", "delayMoveMax=0"]  # no artificial thinking delay
+        if os.environ.get("KATAGO_VISITS"):
+            overrides.append(f"maxVisits={os.environ['KATAGO_VISITS']}")
+        args = [binary, "gtp", "-model", model, "-config", config,
+                "-override-config", ",".join(overrides)]
+        if self.has_human:
+            args[4:4] = ["-human-model", human]
         self.lock = threading.Lock()
+        self.profile = None  # humanSLProfile currently applied
         self.proc = subprocess.Popen(
-            [binary, "gtp", "-model", model, "-config", config,
-             "-override-config", f"maxVisits={visits}"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True,
         )
 
@@ -73,12 +89,30 @@ class Engine:
 
     def genmove(self, payload):
         with self.lock:
+            self._apply_profile(payload.get("profile", ""))
             self.cmd(f"boardsize {int(payload['size'])}")
             self.cmd("clear_board")
             self.cmd(f"komi {float(payload.get('komi', 6.5))}")
             for color, vertex in payload.get("moves", []):
                 self.cmd(f"play {color} {vertex}")
             return self.cmd(f"genmove {payload['color']}")
+
+    # profile "rank_10k" etc. = human-like play at that rank; "" = full
+    # strength (the human policy stops choosing the move).
+    def _apply_profile(self, profile):
+        if profile and not self.has_human:
+            raise RuntimeError(
+                "human model not found — download b18c384nbt-humanv0.bin.gz "
+                "to ~/.katago/ (see README) for rank-calibrated play"
+            )
+        if not self.has_human or profile == self.profile:
+            return
+        if profile:
+            self.cmd("kata-set-param humanSLChosenMoveProp 1.0")
+            self.cmd(f"kata-set-param humanSLProfile {profile}")
+        else:
+            self.cmd("kata-set-param humanSLChosenMoveProp 0")
+        self.profile = profile
 
 
 ENGINE = None
