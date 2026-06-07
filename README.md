@@ -4,6 +4,17 @@ Minimalist browser-based viewer for the SGF collections in this directory
 (`pro-games/` — 95k pro games, `gtl/` — 10k commented Go Teaching Ladder
 reviews).
 
+## Install (macOS)
+
+```sh
+./install.sh                 # Homebrew, katago, the human SL model, KaTrain
+./install.sh --skip-katrain  # core only (no GUI)
+```
+
+Idempotent — safe to re-run. The viewer needs no Python packages (serve.py
+is stdlib only); `katago` and the human model are only needed for the
+engine modes (vs engine / score / explore).
+
 ## Run
 
 ```sh
