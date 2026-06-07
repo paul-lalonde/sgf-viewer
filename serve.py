@@ -11,6 +11,7 @@ Engine discovery (override with env vars):
   KATAGO_CFG         gtp config         (default: gtp_human5k_example.cfg when the human
                                          model is present, else gtp_example.cfg)
   KATAGO_VISITS      playout cap        (default: config's own value)
+  KATAGO_EXPLORE_VISITS  analysis-engine playouts per query (default: 100)
 
 With the human model loaded, /api/engine/move accepts "profile":
 "rank_10k" etc. for human-like play at that rank, or "" for maximum
@@ -27,6 +28,26 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 
+def _newest_model(share):
+    models = sorted(glob.glob(os.path.join(share, "kata1*.bin.gz"))) \
+        or sorted(glob.glob(os.path.join(share, "*.bin.gz")))
+    if not models:
+        raise RuntimeError(f"no KataGo model under {share} (set KATAGO_MODEL)")
+    return models[-1]
+
+
+def katago_paths():
+    """(binary, share dir, model) for KataGo, honoring env overrides."""
+    binary = os.environ.get("KATAGO_BIN") or shutil.which("katago")
+    if not binary:
+        raise RuntimeError("katago not found (brew install katago, or set KATAGO_BIN)")
+    share = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.realpath(binary))), "share", "katago"
+    )
+    model = os.environ.get("KATAGO_MODEL") or _newest_model(share)
+    return binary, share, model
+
+
 class Engine:
     """One persistent KataGo GTP subprocess, serialized by a lock.
 
@@ -35,13 +56,7 @@ class Engine:
     """
 
     def __init__(self):
-        binary = os.environ.get("KATAGO_BIN") or shutil.which("katago")
-        if not binary:
-            raise RuntimeError("katago not found (brew install katago, or set KATAGO_BIN)")
-        share = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.realpath(binary))), "share", "katago"
-        )
-        model = os.environ.get("KATAGO_MODEL") or self._newest_model(share)
+        binary, share, model = katago_paths()
         human = os.environ.get("KATAGO_HUMAN_MODEL") or os.path.expanduser(
             "~/.katago/b18c384nbt-humanv0.bin.gz"
         )
@@ -62,14 +77,6 @@ class Engine:
             args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True,
         )
-
-    @staticmethod
-    def _newest_model(share):
-        models = sorted(glob.glob(os.path.join(share, "kata1*.bin.gz"))) \
-            or sorted(glob.glob(os.path.join(share, "*.bin.gz")))
-        if not models:
-            raise RuntimeError(f"no KataGo model under {share} (set KATAGO_MODEL)")
-        return models[-1]
 
     def cmd_lines(self, line):
         """Send a GTP command, return its full response as a list of
@@ -138,7 +145,76 @@ class Engine:
         self.profile = profile
 
 
+class Analysis:
+    """One persistent KataGo analysis-engine subprocess (JSON in/out),
+    serialized by a lock. Used for candidate-move study (explore mode).
+    """
+
+    def __init__(self):
+        binary, share, model = katago_paths()
+        config = os.environ.get("KATAGO_ANALYSIS_CFG") or os.path.join(
+            share, "configs", "analysis_example.cfg"
+        )
+        visits = os.environ.get("KATAGO_EXPLORE_VISITS", "100")
+        self.lock = threading.Lock()
+        self.qid = 0
+        self.proc = subprocess.Popen(
+            [binary, "analysis", "-model", model, "-config", config,
+             "-override-config", f"maxVisits={visits},logDir=/tmp/katago-analysis-logs"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True,
+        )
+
+    # Top candidate moves for the position after payload["moves"], sorted
+    # best-first. Returns {currentPlayer, candidates:[{move, scoreLead,
+    # winrate, order, pv, visits}]} — scoreLead is White's perspective.
+    def candidates(self, payload):
+        size = int(payload["size"])
+        n_moves = len(payload.get("moves", []))
+        query = {
+            "id": None,
+            "moves": payload.get("moves", []),
+            "rules": "japanese",
+            "komi": float(payload.get("komi", 6.5)),
+            "boardXSize": size,
+            "boardYSize": size,
+            "analyzeTurns": [n_moves],
+            "maxVisits": int(payload.get("visits", os.environ.get("KATAGO_EXPLORE_VISITS", 100))),
+        }
+        with self.lock:
+            self.qid += 1
+            query["id"] = f"q{self.qid}"
+            self.proc.stdin.write(json.dumps(query) + "\n")
+            self.proc.stdin.flush()
+            resp = self._read_response(query["id"])
+        keep = int(payload.get("maxmoves", 3))
+        infos = sorted(resp.get("moveInfos", []), key=lambda m: m["order"])[:keep]
+        return {
+            "currentPlayer": resp.get("rootInfo", {}).get("currentPlayer"),
+            "candidates": [
+                {"move": m["move"], "scoreLead": m["scoreLead"], "winrate": m["winrate"],
+                 "order": m["order"], "visits": m["visits"], "pv": m.get("pv", [])}
+                for m in infos
+            ],
+        }
+
+    def _read_response(self, qid):
+        while True:
+            line = self.proc.stdout.readline()
+            if line == "":
+                raise RuntimeError("analysis engine exited")
+            try:
+                msg = json.loads(line)
+            except ValueError:
+                continue  # startup noise / non-JSON
+            if msg.get("error") or msg.get("warning"):
+                raise RuntimeError(msg.get("error") or msg.get("warning"))
+            if msg.get("id") == qid and not msg.get("isDuringSearch"):
+                return msg
+
+
 ENGINE = None
+ANALYSIS = None
 ENGINE_INIT = threading.Lock()
 
 
@@ -148,6 +224,14 @@ def engine():
         if ENGINE is None:
             ENGINE = Engine()
         return ENGINE
+
+
+def analysis():
+    global ANALYSIS
+    with ENGINE_INIT:
+        if ANALYSIS is None:
+            ANALYSIS = Analysis()
+        return ANALYSIS
 
 
 class ViewerHandler(SimpleHTTPRequestHandler):
@@ -162,10 +246,13 @@ class ViewerHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         url = urlparse(self.path)
         if url.path == "/api/engine/move":
-            self.engine_call(lambda e, p: {"move": e.genmove(p)})
+            self.engine_call(lambda p: {"move": engine().genmove(p)})
             return
         if url.path == "/api/engine/score":
-            self.engine_call(lambda e, p: e.score(p))
+            self.engine_call(lambda p: engine().score(p))
+            return
+        if url.path == "/api/engine/candidates":
+            self.engine_call(lambda p: analysis().candidates(p))
             return
         if url.path != "/api/save":
             self.send_error(404)
@@ -191,7 +278,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         try:
             payload = json.loads(self.rfile.read(length))
-            body = json.dumps(run(engine(), payload)).encode()
+            body = json.dumps(run(payload)).encode()
             status = 200
         except Exception as err:  # surface engine trouble to the UI
             body = json.dumps({"error": str(err)}).encode()

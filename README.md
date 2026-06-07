@@ -71,6 +71,19 @@ that file the engine still plays, but only at max strength. KaTrain (installed v
 the full-featured GUI for the same engine: run `katrain`, and point its
 engine settings at `/opt/homebrew/bin/katago` if it asks.
 
+### Explore (walk KataGo's moves)
+
+The **explore** button (or `x`) overlays KataGo's top three moves for the
+side to play, each as a coloured disc — green (its pick), amber, orange —
+labelled with the **point delta versus the recommended move** (0 for the
+pick; `+0.4` means a slightly higher score the engine nonetheless ranks
+below the pick, e.g. for winrate). Click any empty point to play it
+(either colour — you drive both sides); the overlay then recomputes for
+the next colour, so you walk down KataGo's tree move by move. Arrow keys
+re-analyse as you step too, and moves enter the game tree like any other
+(savable). Backed by KataGo's analysis engine (`KATAGO_EXPLORE_VISITS`,
+default 100 — more visits = sharper, slower).
+
 ### Score & territory
 
 The **score** button (or `s`) asks KataGo for an estimate of the current

@@ -101,6 +101,16 @@ def main():
         js("document.getElementById('scorebtn').click()")  # toggle off
         time.sleep(0.3)
         print("S2 after toggle off, active:", js("document.getElementById('scorebtn').classList.contains('active')"))
+
+        # --- scenario 3: explore mode (top-3 candidate overlay) ---
+        js("document.getElementById('exploremode').click()")
+        time.sleep(6)  # analysis engine cold-loads a model on first query
+        print("S3 explore active:", js("document.getElementById('exploremode').classList.contains('active')"))
+        print("S3 feedback:", js("document.getElementById('feedback').textContent"))
+        shot = cmd("Page.captureScreenshot")["data"]
+        with open("/tmp/sgf-explore.png", "wb") as f:
+            f.write(base64.b64decode(shot))
+        print("S3 screenshot saved")
         ws.close()
     finally:
         proc.terminate()

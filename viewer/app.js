@@ -12,6 +12,7 @@ const state = {
   dir: '', dirs: [], files: [], file: null, game: null,
   tool: 'play', dirty: false, solve: false, replyTimer: null,
   engine: false, engineBusy: false, scoreNode: null,
+  explore: false, exploreBusy: false, exploreNode: null,
 };
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
@@ -138,6 +139,15 @@ function refresh() {
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
   board.setOwnership(state.scoreNode ? board.ownership : null);
+  // explore: keep candidate overlay synced to the current node
+  if (state.explore) {
+    if (!state.exploreBusy && state.exploreNode !== game.current) {
+      board.setCandidates(null); // clear stale markers while we recompute
+      requestCandidates();
+    }
+  } else if (board.candidates) {
+    board.setCandidates(null);
+  }
   tree.update();
   if (state.file) {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
@@ -218,6 +228,10 @@ function onBoardClick(x, y) {
     engineClick(x, y);
     return;
   }
+  if (state.explore) {
+    exploreClick(x, y);
+    return;
+  }
   if (state.tool === 'play') {
     const result = game.playAt(x, y);
     if (!result) return;
@@ -238,6 +252,7 @@ function onBoardClick(x, y) {
 function setSolveMode(on) {
   state.solve = on;
   if (on && state.engine) setEngineMode(false);
+  if (on && state.explore) setExploreMode(false);
   $('solvemode').classList.toggle('active', on);
   clearTimeout(state.replyTimer);
   board.setGhost(on && state.game ? state.game.nextColor() : null);
@@ -296,6 +311,7 @@ function feedback(cls, msg) {
 function setEngineMode(on) {
   state.engine = on;
   if (on && state.solve) setSolveMode(false);
+  if (on && state.explore) setExploreMode(false);
   $('enginemode').classList.toggle('active', on);
   if (on && !state.game) startFreshGame(19); // nothing loaded: just start playing
   if (on && state.game) {
@@ -439,10 +455,114 @@ async function toggleScore() {
 }
 
 // whiteLead (positive = White ahead) -> "B+12.5" / "W+3.5" / "even"
-function scoreText(lead) {
+function leadToBW(lead) {
   const r = Math.round(Math.abs(lead) * 2) / 2;
-  const who = lead > 0 ? 'W' : 'B';
-  return `estimated score: ${r === 0 ? 'even' : `${who}+${r}`} (approximate)`;
+  return r === 0 ? 'even' : `${lead > 0 ? 'W' : 'B'}+${r}`;
+}
+
+function scoreText(lead) {
+  return `estimated score: ${leadToBW(lead)} (approximate)`;
+}
+
+// ---------- explore: walk KataGo's top moves --------------------------------
+
+function setExploreMode(on) {
+  state.explore = on;
+  if (on) {
+    if (state.solve) setSolveMode(false);
+    if (state.engine) setEngineMode(false);
+    if (!state.game) startFreshGame(19);
+  }
+  $('exploremode').classList.toggle('active', on);
+  state.exploreNode = null; // force a fresh analysis on (re)entry
+  if (!on) board.setCandidates(null);
+  feedback('', on ? 'analyzing…' : '');
+  refresh();
+}
+$('exploremode').addEventListener('click', () => setExploreMode(!state.explore));
+
+// Click in explore mode: play the move (any empty point), then the
+// refresh cycle re-analyzes for the new color.
+function exploreClick(x, y) {
+  if (state.exploreBusy) {
+    feedback('', 'analyzing…');
+    return;
+  }
+  const result = state.game.playAt(x, y);
+  if (!result) {
+    feedback('offpath', 'that point is occupied');
+    return;
+  }
+  if (result === 'added') setDirty(true);
+  tree.setGame(state.game);
+  refresh();
+}
+
+// Fetch the top candidate moves for the current node and overlay them.
+async function requestCandidates() {
+  const game = state.game;
+  const node = game.current;
+  const { moves, unsupported } = game.engineMoves();
+  if (unsupported) {
+    feedback('offpath', 'position uses AE (cleared points) — explore unsupported here');
+    state.exploreNode = node;
+    return;
+  }
+  state.exploreBusy = true;
+  try {
+    const res = await fetch('/api/engine/candidates', {
+      method: 'POST',
+      body: JSON.stringify({
+        size: game.size,
+        komi: parseFloat(game.rootProp('KM')) || 6.5,
+        moves,
+        maxmoves: 3,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (state.explore && game === state.game && node === game.current) {
+      showCandidates(data);
+    }
+  } catch (err) {
+    if (node === state.game?.current) feedback('fail', `explore error: ${err.message}`);
+  } finally {
+    state.exploreBusy = false;
+    state.exploreNode = node;
+    // position moved while we were computing: analyze the new one
+    if (state.explore && state.game && state.exploreNode !== state.game.current) {
+      board.setCandidates(null);
+      requestCandidates();
+    }
+  }
+}
+
+// Convert engine candidates to board markers labelled with the point
+// delta (points lost vs the best move), from the to-move perspective.
+function showCandidates({ currentPlayer, candidates }) {
+  if (!candidates.length) {
+    board.setCandidates(null);
+    feedback('', 'no candidate moves (game over?)');
+    return;
+  }
+  const persp = (lead) => (currentPlayer === 'W' ? lead : -lead); // to-move perspective
+  // delta vs KataGo's top recommendation (candidates are order-sorted),
+  // so the colour rank and the labelled point delta share one reference.
+  const top = persp(candidates[0].scoreLead);
+  const markers = [];
+  for (const c of candidates) {
+    const pt = gtpPoint(c.move, state.game.size);
+    if (!pt) continue; // skip pass
+    markers.push({ x: pt.x, y: pt.y, rank: c.order, text: fmtDelta(persp(c.scoreLead) - top) });
+  }
+  board.setCandidates(markers);
+  const who = currentPlayer === 'W' ? 'White' : 'Black';
+  feedback('', `${who} to play · best ${candidates[0].move} (${leadToBW(candidates[0].scoreLead)})`);
+}
+
+function fmtDelta(d) {
+  if (Math.abs(d) < 0.05) return '0';
+  return (d > 0 ? '+' : '') + d.toFixed(1);
 }
 
 // ---------- editing -------------------------------------------------------
@@ -571,6 +691,7 @@ const KEYS = {
   f: () => setFilesHidden(!document.body.classList.contains('nofiles')),
   t: () => setSolveMode(!state.solve),
   e: () => setEngineMode(!state.engine),
+  x: () => setExploreMode(!state.explore),
   s: () => toggleScore(),
 };
 document.addEventListener('keydown', (e) => {

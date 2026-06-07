@@ -257,6 +257,7 @@ main {
 #tools .sep { flex: 1; }
 #solvemode.active { background: #1452b8; border-color: #1452b8; color: #fff; }
 #enginemode.active { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+#exploremode.active { background: #00695c; border-color: #00695c; color: #fff; }
 #scorebtn.active { background: #6a1b9a; border-color: #6a1b9a; color: #fff; }
 
 #strength {

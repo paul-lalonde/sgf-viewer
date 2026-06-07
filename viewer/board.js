@@ -14,6 +14,7 @@ export class Board {
     this.ghostColor = null; // BLACK/WHITE: stone preview follows the pointer
     this.hover = null;
     this.ownership = null; // size*size of [-1,1], +White/-Black, or null
+    this.candidates = null; // [{x, y, text, rank}] engine suggestions, or null
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -39,6 +40,12 @@ export class Board {
   // White, negative Black, top-left first), or null to clear.
   setOwnership(ownership) {
     this.ownership = ownership;
+    this.draw();
+  }
+
+  // Engine candidate moves: [{x, y, text, rank}] (rank 0 = best), or null.
+  setCandidates(candidates) {
+    this.candidates = candidates;
     this.draw();
   }
 
@@ -80,6 +87,7 @@ export class Board {
     this._drawOwnership(ctx, cell, origin);
     this._drawMarks(ctx, cell, origin);
     this._drawLastMove(ctx, cell, origin);
+    this._drawCandidates(ctx, cell, origin);
     this._drawGhost(ctx, cell, origin);
     ctx.restore();
   }
@@ -196,6 +204,30 @@ export class Board {
     ctx.strokeStyle = lastMove.color === BLACK ? '#fff' : '#000';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+  }
+
+  // Colored disc + delta label at each engine candidate, by rank.
+  _drawCandidates(ctx, cell, origin) {
+    if (!this.candidates) return;
+    const colors = ['#2e7d32', '#f9a825', '#e65100']; // best → worse
+    const r = cell * 0.46;
+    for (const c of this.candidates) {
+      const cx = origin + c.x * cell;
+      const cy = origin + c.y * cell;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = colors[c.rank] || '#777';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${(cell * 0.32).toFixed(1)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(c.text, cx, cy);
+      ctx.restore();
+    }
   }
 
   _drawGhost(ctx, cell, origin) {

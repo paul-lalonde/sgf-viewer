@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<!-- Dev harness: render the board's candidate-move overlay from a live
+     /api/engine/candidates query, to eyeball _drawCandidates labels. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>explore overlay test</title>
+  <style> #board { width: 480px; aspect-ratio: 1; display: block; } </style>
+</head>
+<body>
+  <p id="msg">analyzing…</p>
+  <canvas id="board"></canvas>
+  <script type="module">
+    import { Board } from '/viewer/board.js';
+    import { BLACK, WHITE, emptyGrid } from '/viewer/colors.js';
+    import { gtpPoint } from '/viewer/game.js';
+
+    const SIZE = 9;
+    const moves = [['B', 'E5'], ['W', 'C3'], ['B', 'G5']]; // white to play
+    const grid = emptyGrid(SIZE);
+    const gtp = 'ABCDEFGHJ';
+    for (const [c, v] of moves) {
+      grid[SIZE - parseInt(v.slice(1))][gtp.indexOf(v[0])] = c === 'B' ? BLACK : WHITE;
+    }
+    const board = new Board(document.getElementById('board'), { size: SIZE });
+    board.setPosition({ grid, lastMove: null });
+
+    const res = await fetch('/api/engine/candidates', {
+      method: 'POST',
+      body: JSON.stringify({ size: SIZE, komi: 6.5, moves, maxmoves: 3 }),
+    });
+    const { currentPlayer, candidates } = await res.json();
+    const persp = (l) => (currentPlayer === 'W' ? l : -l);
+    const top = persp(candidates[0].scoreLead); // order-0 = engine's pick
+    board.setCandidates(candidates.map((c) => {
+      const pt = gtpPoint(c.move, SIZE);
+      const d = persp(c.scoreLead) - top;
+      const text = Math.abs(d) < 0.05 ? '0' : (d > 0 ? '+' : '') + d.toFixed(1);
+      return { x: pt.x, y: pt.y, rank: c.order, text };
+    }));
+    document.getElementById('msg').textContent =
+      `${currentPlayer} to play — best ${candidates[0].move}; greener = better, label = points lost`;
+  </script>
+</body>
+</html>
