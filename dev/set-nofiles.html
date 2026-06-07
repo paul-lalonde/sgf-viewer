@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<!-- Dev harness: toggles the tucked-away file browser flag, then opens the
+     viewer. Usage: /dev/set-nofiles.html?on (or ?off) -->
+<script>
+  localStorage.setItem('sgf-nofiles', location.search === '?off' ? '' : '1');
+  location.replace('/#gtl%2F1011-josh-gergely-nickarin.sgf@37');
+</script>

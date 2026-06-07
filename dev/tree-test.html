@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<!-- Dev harness: renders the TreeView for a synthetic SGF with nested
+     variations and navigates into a sub-variation, so fork layout and
+     auto-expansion can be eyeballed (or screenshotted headlessly)
+     without clicking. Open via serve.py: /dev/tree-test.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>tree layout test</title>
+  <link rel="stylesheet" href="/viewer/style.css">
+  <style>
+    body { display: block; padding: 16px; }
+    #tree { border: 1px solid #ddd; max-width: 480px; height: 300px; }
+  </style>
+</head>
+<body>
+  <p>fork layout test — current node is deep in a nested variation</p>
+  <div id="tree"></div>
+  <script type="module">
+    import { Game } from '/viewer/game.js';
+    import { TreeView } from '/viewer/tree.js';
+
+    const sgf = `(;SZ[19];B[pd];W[dp];B[pq]
+      (;W[dd];B[qk]C[main];W[nc];B[pf];W[jd];B[cd];W[cf];B[fc])
+      (;W[nc];B[qf]
+        (;W[jd];B[cd];W[df];B[fd])
+        (;W[pb];B[qc];W[kc];B[dd];W[cf]))
+      (;W[fq];B[cn];W[jp]))`;
+
+    const game = new Game(sgf);
+    const tree = new TreeView(document.getElementById('tree'), {
+      onSelect: (node) => { game.goTo(node); tree.update(); },
+    });
+    tree.setGame(game);
+
+    // Walk into: branch at B[pq] → variation W[nc] → its branch → W[pb] line end
+    let n = game.root;
+    while (n.children.length === 1) n = n.children[0]; // B[pq]
+    n = n.children[1]; // W[nc]
+    while (n.children.length === 1) n = n.children[0]; // B[qf]
+    n = n.children[1]; // W[pb]
+    while (n.children.length) n = n.children[0]; // end of that line
+    game.goTo(n);
+    tree.update();
+  </script>
+</body>
+</html>
