@@ -135,7 +135,11 @@ function refresh() {
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
-  board.setGhost(state.solve || (state.engine && !state.engineBusy) ? game.nextColor() : null);
+  // ghost stone of the colour to play, in every click-to-place mode
+  // (hidden while the engine is busy thinking/analysing)
+  const placing = state.solve || state.engine || state.explore;
+  const busy = state.engineBusy || state.exploreBusy;
+  board.setGhost(placing && !busy ? game.nextColor() : null);
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
   board.setOwnership(state.scoreNode ? board.ownership : null);
