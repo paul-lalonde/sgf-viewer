@@ -130,16 +130,22 @@ function decodeSGF(buf) {
 
 // ---------- display -------------------------------------------------------
 
+// Ghost stone of the colour to play, shown whenever a click would place
+// a stone: tsumego/engine/explore modes, or the plain play tool. Hidden
+// while the engine is busy, and for the mark tools.
+function updateGhost() {
+  if (!state.game) return;
+  const placing = state.solve || state.engine || state.explore || state.tool === 'play';
+  const busy = state.engineBusy || state.exploreBusy;
+  board.setGhost(placing && !busy ? state.game.nextColor() : null);
+}
+
 function refresh() {
   const game = state.game;
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
-  // ghost stone of the colour to play, in every click-to-place mode
-  // (hidden while the engine is busy thinking/analysing)
-  const placing = state.solve || state.engine || state.explore;
-  const busy = state.engineBusy || state.exploreBusy;
-  board.setGhost(placing && !busy ? game.nextColor() : null);
+  updateGhost();
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
   board.setOwnership(state.scoreNode ? board.ownership : null);
@@ -259,7 +265,7 @@ function setSolveMode(on) {
   if (on && state.explore) setExploreMode(false);
   $('solvemode').classList.toggle('active', on);
   clearTimeout(state.replyTimer);
-  board.setGhost(on && state.game ? state.game.nextColor() : null);
+  updateGhost();
   if (on && state.game && !state.game.current.children.length) {
     feedback('offpath', 'no solution tree in this file');
   } else {
@@ -581,6 +587,7 @@ for (const btn of document.querySelectorAll('#tools .tool[data-tool]')) {
     state.tool = btn.dataset.tool;
     document.querySelector('#tools .tool[data-tool].active')?.classList.remove('active');
     btn.classList.add('active');
+    updateGhost(); // play tool shows the ghost; mark tools don't
   });
 }
 
