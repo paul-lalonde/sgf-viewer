@@ -10,8 +10,10 @@
 // branches) collapse into one "12–45" segment that shows the current
 // move number while you are inside it.
 
-import { isMove, moveOf } from './game.js';
+import { isMove, moveOf, singleSetup } from './game.js';
 import { BLACK } from './colors.js';
+
+const COLS = 'ABCDEFGHJKLMNOPQRST'; // no 'I', matching the board labels
 
 // Props that make a node worth showing individually.
 const ANNOTATIONS = ['C', 'TR', 'SQ', 'CR', 'MA', 'LB', 'TB', 'TW', 'AB', 'AW', 'AE', 'M', 'L'];
@@ -135,9 +137,14 @@ export class TreeView {
   _moveEl(node, num) {
     const el = document.createElement('span');
     const mv = moveOf(node, this.game.size);
+    const setup = mv ? null : singleSetup(node, this.game.size);
     if (mv) {
       el.className = `move ${mv.color === BLACK ? 'b' : 'w'}`;
       el.textContent = mv.pass ? `${num}·pass` : String(num);
+    } else if (setup) {
+      // demo-line stone (AB/AW, unnumbered): show its coordinate
+      el.className = `move ${setup.color === BLACK ? 'b' : 'w'}`;
+      el.textContent = COLS[setup.x] + (this.game.size - setup.y);
     } else {
       el.className = 'move setup';
       el.textContent = '·';

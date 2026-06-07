@@ -37,7 +37,12 @@ export class Game {
     for (const node of this.path()) {
       applySetup(grid, node, this.size);
       const mv = moveOf(node, this.size);
-      if (!mv) continue;
+      if (!mv) {
+        // old demo lines add stones via AB/AW: ring the added stone
+        const setup = singleSetup(node, this.size);
+        if (setup) lastMove = setup;
+        continue;
+      }
       moveNumber++;
       if (mv.pass) {
         lastMove = null;
@@ -225,6 +230,17 @@ export function moveOf(node, size) {
   const value = node.props[color === BLACK ? 'B' : 'W'][0] || '';
   const pt = parsePoint(value, size);
   return pt ? { ...pt, color } : { color, pass: true };
+}
+
+// A node that just places one stone (AB/AW, no move) — how old mgt/IGS
+// reviews encode demonstration lines. Returns {x, y, color} or null.
+export function singleSetup(node, size) {
+  if (isMove(node)) return null;
+  const ab = node.props.AB || [];
+  const aw = node.props.AW || [];
+  if (ab.length + aw.length !== 1) return null;
+  const points = expandPoints(ab[0] ?? aw[0], size);
+  return points.length === 1 ? { ...points[0], color: ab.length ? BLACK : WHITE } : null;
 }
 
 export function parsePoint(value, size) {
