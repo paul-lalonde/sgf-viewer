@@ -1,0 +1,85 @@
+2026-06-07 10:47:02-0700: Running with following config:
+allowResignation = true
+lagBuffer = 1.0
+logAllGTPCommunication = true
+logDir = gtp_logs
+logSearchInfo = true
+logSearchInfoForChosenMove = false
+logToStderr = false
+maxTimePondering = 60.0
+maxVisits = 8
+numSearchThreads = 6
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+rules = tromp-taylor
+searchFactorAfterOnePass = 0.50
+searchFactorAfterTwoPass = 0.25
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.95
+
+2026-06-07 10:47:02-0700: GTP Engine starting...
+2026-06-07 10:47:02-0700: KataGo v1.16.4
+2026-06-07 10:47:02-0700: Using TrompTaylor rules initially, unless GTP/GUI overrides this
+2026-06-07 10:47:02-0700: Using 6 CPU thread(s) for search
+2026-06-07 10:47:02-0700: nnRandSeed0 = 15802545917839946965
+2026-06-07 10:47:02-0700: After dedups: nnModelFile0 = /opt/homebrew/opt/katago/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 10:47:02-0700: Initializing neural net buffer to be size 19 * 19 exactly
+2026-06-07 10:47:02-0700: Loaded neural net with nnXLen 19 nnYLen 19
+2026-06-07 10:47:02-0700: Initializing board with boardXSize 19 boardYSize 19
+2026-06-07 10:47:02-0700: Loaded config /opt/homebrew/opt/katago/share/katago/configs/gtp_example.cfg and/or command-line and query overrides
+2026-06-07 10:47:02-0700: Loaded model /opt/homebrew/opt/katago/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz
+2026-06-07 10:47:02-0700: Config override: maxVisits = 8
+2026-06-07 10:47:02-0700: Model name: kata1-b18c384nbt-s9996604416-d4316597426
+2026-06-07 10:47:02-0700: GTP ready, beginning main protocol loop
+2026-06-07 10:47:02-0700: Controller: boardsize 9
+2026-06-07 10:47:02-0700: GPU -1 finishing, processed 0 rows 0 batches
+2026-06-07 10:47:02-0700: Cleaned up old neural net and bot
+2026-06-07 10:47:02-0700: nnRandSeed0 = 14458164839512492452
+2026-06-07 10:47:02-0700: After dedups: nnModelFile0 = /opt/homebrew/opt/katago/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 10:47:02-0700: Initializing neural net buffer to be size 9 * 9 exactly
+2026-06-07 10:47:03-0700: Loaded neural net with nnXLen 9 nnYLen 9
+2026-06-07 10:47:03-0700: Initializing board with boardXSize 9 boardYSize 9
+2026-06-07 10:47:03-0700: = 
+2026-06-07 10:47:03-0700: Controller: komi 7
+2026-06-07 10:47:03-0700: = 
+2026-06-07 10:47:03-0700: Controller: play B E5
+2026-06-07 10:47:03-0700: = 
+2026-06-07 10:47:03-0700: Controller: genmove W
+2026-06-07 10:47:04-0700: MoveNum: 1 HASH: 38E71B648B5DE3A43B414F57C285AD76
+   A B C D E F G H J
+ 9 . . . . . . . . .
+ 8 . . . . . . . . .
+ 7 . . . . . . . . .
+ 6 . . . . . . . . .
+ 5 . . . . X1. . . .
+ 4 . . @ . . . . . .
+ 3 . . . . . . . . .
+ 2 . . . . . . . . .
+ 1 . . . . . . . . .
+
+koPOSITIONALscoreAREAtaxNONEsui1komi7
+Time taken: 1.54223
+Root visits: 8
+New playouts: 8
+NN rows: 8
+NN batches: 8
+NN avg batch size: 1
+PV: C4
+Tree:
+: T   6.57c W   7.47c S  -0.94c ( +0.3 L  +0.3) N       8  --  C4
+---White(^)---
+C4  : T   4.75c W   5.89c S  -1.14c ( +0.2 L  +0.2) LCB -345.25c P 11.70% WF   2.6 PSV       3 N       1  --  C4
+C5  : T   2.90c W   3.38c S  -0.48c ( +0.5 L  +0.6) LCB -347.10c P  1.87% WF   2.2 PSV       0 N       1  --  C5
+C3  : T  -2.04c W   0.68c S  -2.72c ( -0.6 L  +0.1) LCB -352.04c P  0.54% WF   1.2 PSV       0 N       1  --  C3
+D4  : T  -1.00c W   0.40c S  -1.40c ( +0.0 L  +0.3) LCB -351.00c P  0.01% WF   1.2 PSV       0 N       1  --  D4
+B5  : T -74.00c W -67.90c S  -6.10c ( -2.4 L  -1.1) LCB -424.00c P  0.01% WF   0.0 PSV       0 N       1  --  B5
+D5  : T -73.78c W -70.01c S  -3.78c ( -1.2 L  -1.1) LCB -423.78c P  0.01% WF   0.0 PSV       0 N       1  --  D5
+pss : T -120.34c W -99.51c S -20.83c ( -9.9 L  -9.4) LCB -470.34c P  0.00% WF   0.0 PSV       0 N       1  --  pass
+
+2026-06-07 10:47:04-0700: = C4
+2026-06-07 10:47:04-0700: Controller: quit
+2026-06-07 10:47:04-0700: Quit requested by controller
+2026-06-07 10:47:04-0700: = 
+2026-06-07 10:47:04-0700: GPU -1 finishing, processed 8 rows 8 batches
+2026-06-07 10:47:04-0700: All cleaned up, quitting

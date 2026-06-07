@@ -50,6 +50,21 @@ The panel under the game tree edits the loaded game:
 - **new** starts a fresh game record (it asks for the board size); save it
   into the current directory under whatever name you type.
 
+### Play vs engine
+
+The **vs engine** button (or `e`) plays your board clicks and has KataGo
+answer; engine moves enter the game tree like any move, so the game is a
+savable record. The current position (handicap/setup stones included) is
+replayed to the engine each turn — you can also start from any mid-game
+or problem position. Needs `katago` on PATH (`brew install katago`);
+serve.py finds the newest model and gtp config next to the binary, or
+set `KATAGO_BIN` / `KATAGO_MODEL` / `KATAGO_CFG` / `KATAGO_VISITS`
+(default 16 — raise for a stronger opponent). Komi comes from the
+file's `KM` (default 6.5). Positions using `AE` (cleared points) can't
+be expressed over GTP and are refused. KaTrain (installed via pipx) is
+the full-featured GUI for the same engine: run `katrain`, and point its
+engine settings at `/opt/homebrew/bin/katago` if it asks.
+
 ### Tsumego mode
 
 The **tsumego** button (or `t`) switches board clicks to solving: your

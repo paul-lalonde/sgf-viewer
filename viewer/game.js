@@ -211,6 +211,36 @@ export class Game {
     else delete this.current.props.C;
   }
 
+  playPass() {
+    const prop = this.nextColor() === BLACK ? 'B' : 'W';
+    const node = { props: { [prop]: [''] }, parent: this.current, children: [] };
+    this.current.children.push(node);
+    this.goTo(node);
+  }
+
+  // Flatten the path to GTP plays for an engine: setup stones become
+  // plays (KataGo accepts consecutive same-color moves). AE (clearing a
+  // point) has no GTP equivalent and marks the position unsupported.
+  engineMoves() {
+    const moves = [];
+    let unsupported = false;
+    for (const node of this.path()) {
+      if (node.props.AE?.length) unsupported = true;
+      for (const [prop, color] of [['AB', 'B'], ['AW', 'W']]) {
+        for (const value of node.props[prop] || []) {
+          for (const pt of expandPoints(value, this.size)) {
+            moves.push([color, gtpVertex(pt.x, pt.y, this.size)]);
+          }
+        }
+      }
+      const mv = moveOf(node, this.size);
+      if (mv) {
+        moves.push([mv.color === BLACK ? 'B' : 'W', mv.pass ? 'pass' : gtpVertex(mv.x, mv.y, this.size)]);
+      }
+    }
+    return { moves, unsupported };
+  }
+
   serialize() {
     this.root.props.CA = ['UTF-8']; // we always save as UTF-8
     return writeSGF(this.root);
@@ -219,6 +249,22 @@ export class Game {
 
 function pt(x, y) {
   return String.fromCharCode(97 + x, 97 + y);
+}
+
+// GTP vertex conversion ("Q16"; the column letters skip I).
+const GTP_COLS = 'ABCDEFGHJKLMNOPQRST';
+
+export function gtpVertex(x, y, size) {
+  return GTP_COLS[x] + (size - y);
+}
+
+export function gtpPoint(vertex, size) {
+  const m = /^([A-HJ-T])(\d{1,2})$/i.exec(vertex.trim());
+  if (!m) return null;
+  const x = GTP_COLS.indexOf(m[1].toUpperCase());
+  const y = size - parseInt(m[2], 10);
+  if (x < 0 || x >= size || y < 0 || y >= size) return null;
+  return { x, y };
 }
 
 const MARK_TO_PROP = { triangle: 'TR', square: 'SQ', circle: 'CR', x: 'MA' };

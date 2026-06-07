@@ -1,0 +1,146 @@
+2026-06-07 10:52:40-0700: Running with following config:
+allowResignation = true
+lagBuffer = 1.0
+logAllGTPCommunication = true
+logDir = gtp_logs
+logSearchInfo = true
+logSearchInfoForChosenMove = false
+logToStderr = false
+maxTimePondering = 60.0
+maxVisits = 16
+numSearchThreads = 6
+ponderingEnabled = false
+resignConsecTurns = 3
+resignThreshold = -0.90
+rules = tromp-taylor
+searchFactorAfterOnePass = 0.50
+searchFactorAfterTwoPass = 0.25
+searchFactorWhenWinning = 0.40
+searchFactorWhenWinningThreshold = 0.95
+
+2026-06-07 10:52:40-0700: GTP Engine starting...
+2026-06-07 10:52:40-0700: KataGo v1.16.4
+2026-06-07 10:52:40-0700: Using TrompTaylor rules initially, unless GTP/GUI overrides this
+2026-06-07 10:52:40-0700: Using 6 CPU thread(s) for search
+2026-06-07 10:52:40-0700: nnRandSeed0 = 10189922309506576969
+2026-06-07 10:52:40-0700: After dedups: nnModelFile0 = /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 10:52:40-0700: Initializing neural net buffer to be size 19 * 19 exactly
+2026-06-07 10:52:41-0700: Loaded neural net with nnXLen 19 nnYLen 19
+2026-06-07 10:52:41-0700: Initializing board with boardXSize 19 boardYSize 19
+2026-06-07 10:52:41-0700: Loaded config /opt/homebrew/Cellar/katago/1.16.4/share/katago/configs/gtp_example.cfg and/or command-line and query overrides
+2026-06-07 10:52:41-0700: Loaded model /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz
+2026-06-07 10:52:41-0700: Config override: maxVisits = 16
+2026-06-07 10:52:41-0700: Model name: kata1-b18c384nbt-s9996604416-d4316597426
+2026-06-07 10:52:41-0700: GTP ready, beginning main protocol loop
+2026-06-07 10:52:41-0700: Controller: boardsize 9
+2026-06-07 10:52:41-0700: GPU -1 finishing, processed 0 rows 0 batches
+2026-06-07 10:52:41-0700: Cleaned up old neural net and bot
+2026-06-07 10:52:41-0700: nnRandSeed0 = 17490125843338551091
+2026-06-07 10:52:41-0700: After dedups: nnModelFile0 = /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 10:52:41-0700: Initializing neural net buffer to be size 9 * 9 exactly
+2026-06-07 10:52:41-0700: Loaded neural net with nnXLen 9 nnYLen 9
+2026-06-07 10:52:41-0700: Initializing board with boardXSize 9 boardYSize 9
+2026-06-07 10:52:41-0700: = 
+2026-06-07 10:52:41-0700: Controller: clear_board
+2026-06-07 10:52:41-0700: = 
+2026-06-07 10:52:41-0700: Controller: komi 7.0
+2026-06-07 10:52:41-0700: = 
+2026-06-07 10:52:41-0700: Controller: play B E5
+2026-06-07 10:52:41-0700: = 
+2026-06-07 10:52:41-0700: Controller: genmove W
+2026-06-07 10:52:41-0700: MoveNum: 1 HASH: 38E71B648B5DE3A43B414F57C285AD76
+   A B C D E F G H J
+ 9 . . . . . . . . .
+ 8 . . . . . . . . .
+ 7 . . . . . . . . .
+ 6 . . . . . . . . .
+ 5 . . . . X1. . . .
+ 4 . . @ . . . . . .
+ 3 . . . . . . . . .
+ 2 . . . . . . . . .
+ 1 . . . . . . . . .
+
+koPOSITIONALscoreAREAtaxNONEsui1komi7
+Time taken: 0.224278
+Root visits: 17
+New playouts: 17
+NN rows: 17
+NN batches: 17
+NN avg batch size: 1
+PV: C4 D3
+Tree:
+: T   9.06c W   9.39c S  -0.94c ( +0.3 L  +0.3) N      17  --  C4 D3
+---White(^)---
+C4  : T   8.35c W   8.22c S  -1.24c ( +0.2 L  +0.2) LCB -148.99c P 11.80% WF   4.5 PSV       4 N       2  --  C4 D3
+C5  : T   7.94c W   8.36c S  -0.43c ( +0.5 L  +0.5) LCB -342.06c P  2.03% WF   2.3 PSV       0 N       1  --  C5
+C3  : T  -4.91c W  -2.28c S  -2.62c ( -0.6 L  +0.1) LCB -354.91c P  0.54% WF   0.9 PSV       0 N       1  --  C3
+D4  : T   1.57c W   2.85c S  -1.28c ( +0.1 L  +0.3) LCB -348.43c P  0.02% WF   1.0 PSV       0 N       1  --  D4
+B5  : T -77.25c W -70.85c S  -6.40c ( -2.5 L  -1.2) LCB -427.25c P  0.01% WF   0.0 PSV       0 N       1  --  B5
+D5  : T -73.78c W -70.01c S  -3.78c ( -1.2 L  -1.1) LCB -423.78c P  0.01% WF   0.0 PSV       0 N       1  --  D5
+pss : T -120.34c W -99.51c S -20.83c ( -9.9 L  -9.4) LCB -470.34c P  0.00% WF   0.0 PSV       0 N       1  --  pass
+B4  : T -80.98c W -74.12c S  -6.86c ( -2.6 L  -1.3) LCB -430.98c P  0.00% WF   0.0 PSV       0 N       1  --  B4
+B3  : T -100.70c W -91.24c S  -9.46c ( -3.6 L  -2.7) LCB -450.70c P  0.00% WF   0.0 PSV       0 N       1  --  B3
+B2  : T -110.54c W -97.83c S -12.71c ( -4.8 L  -4.1) LCB -460.54c P  0.00% WF   0.0 PSV       0 N       1  --  B2
+
+2026-06-07 10:52:41-0700: = C4
+2026-06-07 10:52:41-0700: Controller: boardsize 19
+2026-06-07 10:52:41-0700: GPU -1 finishing, processed 17 rows 17 batches
+2026-06-07 10:52:41-0700: Cleaned up old neural net and bot
+2026-06-07 10:52:41-0700: nnRandSeed0 = 399465378738325799
+2026-06-07 10:52:41-0700: After dedups: nnModelFile0 = /opt/homebrew/Cellar/katago/1.16.4/share/katago/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz useFP16 auto useNHWC auto
+2026-06-07 10:52:41-0700: Initializing neural net buffer to be size 19 * 19 exactly
+2026-06-07 10:52:42-0700: Loaded neural net with nnXLen 19 nnYLen 19
+2026-06-07 10:52:42-0700: Initializing board with boardXSize 19 boardYSize 19
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: clear_board
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: komi 6.5
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: play B Q16
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: play B D4
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: play W R14
+2026-06-07 10:52:42-0700: = 
+2026-06-07 10:52:42-0700: Controller: genmove B
+2026-06-07 10:52:42-0700: MoveNum: 2 HASH: 6F65D67D9EB8F7FB1491A3E6F7BFAD66
+   A B C D E F G H J K L M N O P Q R S T
+19 . . . . . . . . . . . . . . . . . . .
+18 . . . . . . . . . . . . . . . . . . .
+17 . . . . . . . . . . . . . . . . . . .
+16 . . . . . . . . . . . . . . . X . . .
+15 . . . . . . . . . . . . . . . . . . .
+14 . . . . . . . . . . . . . . . . O2. .
+13 . . . . . . . . . . . . . . . . . . .
+12 . . . . . . . . . . . . . . . . . . .
+11 . . . . . . . . . . . . . . . . . . .
+10 . . . . . . . . . . . . . . . . . . .
+ 9 . . . . . . . . . . . . . . . . . . .
+ 8 . . . . . . . . . . . . . . . . . . .
+ 7 . . . . . . . . . . . . . . . . . . .
+ 6 . . . . . . . . . . . . . . . . . . .
+ 5 . . . . . . . . . . . . . . . . . . .
+ 4 . . . X1. . . . . . . . . . . @ . . .
+ 3 . . . . . . . . . . . . . . . . . . .
+ 2 . . . . . . . . . . . . . . . . . . .
+ 1 . . . . . . . . . . . . . . . . . . .
+
+koPOSITIONALscoreAREAtaxNONEsui1komi6.5
+Time taken: 0.336022
+Root visits: 17
+New playouts: 17
+NN rows: 17
+NN batches: 17
+NN avg batch size: 1
+PlayoutDoublingAdvantage: -0.5
+PV: Q4 D16 R11 R17
+Tree:
+: T 103.76c W  97.90c S   5.95c (+16.8 L +13.0) N      17  --  Q4 D16 R11 R17
+---Black(^)---
+Q4  : T 104.28c W  98.03c S   6.30c (+17.3 L +13.2) LCB   93.07c P 23.43% WF  28.0 PSV      28 N       8  --  Q4 D16 R11 R17
+D16 : T 103.39c W  97.77c S   5.82c (+16.7 L +13.1) LCB   75.45c P 11.41% WF  18.2 PSV      10 N       5  --  D16 Q4 R6 R8
+E16 : T 103.50c W  98.05c S   5.45c (+16.3 L +12.6) LCB -246.50c P  3.67% WF   3.4 PSV       3 N       1  --  E16
+Q3  : T 103.84c W  98.11c S   5.73c (+16.6 L +13.1) LCB -246.16c P  3.15% WF   3.7 PSV       3 N       1  --  Q3
+R4  : T 103.80c W  98.06c S   5.74c (+16.6 L +13.0) LCB -246.20c P  3.07% WF   3.7 PSV       3 N       1  --  R4
+
+2026-06-07 10:52:42-0700: = Q4

@@ -2,7 +2,7 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict } from './game.js';
+import { Game, isMove, leafVerdict, gtpPoint } from './game.js';
 import { TreeView } from './tree.js';
 import { BLACK, WHITE } from './colors.js';
 
@@ -11,6 +11,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   dir: '', dirs: [], files: [], file: null, game: null,
   tool: 'play', dirty: false, solve: false, replyTimer: null,
+  engine: false, engineBusy: false,
 };
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
@@ -133,7 +134,7 @@ function refresh() {
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
-  board.setGhost(state.solve ? game.nextColor() : null);
+  board.setGhost(state.solve || (state.engine && !state.engineBusy) ? game.nextColor() : null);
   tree.update();
   if (state.file) {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
@@ -210,6 +211,10 @@ function onBoardClick(x, y) {
     solveClick(x, y);
     return;
   }
+  if (state.engine) {
+    engineClick(x, y);
+    return;
+  }
   if (state.tool === 'play') {
     const result = game.playAt(x, y);
     if (!result) return;
@@ -229,6 +234,7 @@ function onBoardClick(x, y) {
 
 function setSolveMode(on) {
   state.solve = on;
+  if (on && state.engine) setEngineMode(false);
   $('solvemode').classList.toggle('active', on);
   clearTimeout(state.replyTimer);
   board.setGhost(on && state.game ? state.game.nextColor() : null);
@@ -280,6 +286,89 @@ function judge(leaf) {
 function feedback(cls, msg) {
   $('feedback').className = cls;
   $('feedback').textContent = msg;
+}
+
+// ---------- play vs engine --------------------------------------------------
+
+function setEngineMode(on) {
+  state.engine = on;
+  if (on && state.solve) setSolveMode(false);
+  $('enginemode').classList.toggle('active', on);
+  if (on && state.game) {
+    const you = state.game.nextColor() === BLACK ? 'black' : 'white';
+    feedback('', `you are ${you} — the engine answers`);
+  } else {
+    feedback('', '');
+  }
+  refresh();
+}
+$('enginemode').addEventListener('click', () => setEngineMode(!state.engine));
+
+// Player's click in engine mode: play the move, then ask KataGo to answer.
+function engineClick(x, y) {
+  const game = state.game;
+  if (state.engineBusy) return;
+  const result = game.playAt(x, y);
+  if (!result) return; // occupied
+  if (result === 'added') setDirty(true);
+  tree.setGame(game);
+  refresh();
+  requestEngineMove();
+}
+
+async function requestEngineMove() {
+  const game = state.game;
+  const { moves, unsupported } = game.engineMoves();
+  if (unsupported) {
+    feedback('offpath', 'position uses AE (cleared points) — engine play unsupported here');
+    return;
+  }
+  state.engineBusy = true;
+  feedback('', 'engine is thinking…');
+  refresh(); // hides the ghost while it is the engine’s turn
+  try {
+    const res = await fetch('/api/engine/move', {
+      method: 'POST',
+      body: JSON.stringify({
+        size: game.size,
+        komi: parseFloat(game.rootProp('KM')) || 6.5,
+        moves,
+        color: game.nextColor() === BLACK ? 'B' : 'W',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    applyEngineMove(data.move);
+  } catch (err) {
+    feedback('fail', `engine error: ${err.message}`);
+  } finally {
+    state.engineBusy = false;
+    refresh();
+  }
+}
+
+function applyEngineMove(move) {
+  const game = state.game;
+  const lower = move.toLowerCase();
+  if (lower === 'resign') {
+    feedback('correct', '🏳 the engine resigns');
+    return;
+  }
+  if (lower === 'pass') {
+    game.playPass();
+    feedback('', 'engine passes');
+  } else {
+    const pt = gtpPoint(move, game.size);
+    if (!pt) {
+      feedback('fail', `engine returned unparseable move: ${move}`);
+      return;
+    }
+    game.playAt(pt.x, pt.y);
+    feedback('', '');
+  }
+  setDirty(true);
+  tree.setGame(game);
+  refresh();
 }
 
 // ---------- editing -------------------------------------------------------
@@ -403,6 +492,7 @@ const KEYS = {
   p: () => nextFile(-1),
   f: () => setFilesHidden(!document.body.classList.contains('nofiles')),
   t: () => setSolveMode(!state.solve),
+  e: () => setEngineMode(!state.engine),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;

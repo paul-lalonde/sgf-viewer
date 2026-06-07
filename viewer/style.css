@@ -240,7 +240,7 @@ main {
   background: #fafafa;
 }
 
-#tools { display: flex; gap: 4px; }
+#tools { display: flex; gap: 4px; flex-wrap: wrap; }
 
 #tools .tool {
   font: 13px system-ui, sans-serif;
@@ -256,6 +256,7 @@ main {
 #tools .tool.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
 #tools .sep { flex: 1; }
 #solvemode.active { background: #1452b8; border-color: #1452b8; color: #fff; }
+#enginemode.active { background: #2e7d32; border-color: #2e7d32; color: #fff; }
 
 #commentbox {
   font: 13px system-ui, sans-serif;
