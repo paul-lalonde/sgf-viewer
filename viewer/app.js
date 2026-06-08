@@ -901,6 +901,35 @@ let persistTimer = null;
 function persist() {
   clearTimeout(persistTimer);
   persistTimer = setTimeout(saveSession, 400);
+  scheduleAutosave();
+}
+
+// Autosave an unsaved (new) game to autosaves/ once it passes 10 moves,
+// so games you never explicitly saved aren't lost. Reuses one filename
+// per game (overwrites as it grows); skips files you opened or saved.
+let autosaveTimer = null;
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(maybeAutosave, 1500);
+}
+
+async function maybeAutosave() {
+  if (!state.game || state.file) return; // only never-saved games
+  if (state.game.lineLength() <= 10) return;
+  if (!state.autosaveName) {
+    const ts = new Date().toISOString().replace(/[:T]/g, '-').replace(/\..+$/, '');
+    state.autosaveName = `game-${ts}.sgf`;
+  }
+  const path = `autosaves/${state.autosaveName}`;
+  try {
+    const res = await fetch(`/api/save?path=${encodeURIComponent(path)}`, {
+      method: 'POST',
+      body: state.game.serialize(),
+    });
+    if (res.ok) $('savestatus').textContent = `autosaved → ${path}`;
+  } catch {
+    /* best-effort */
+  }
 }
 
 function saveSession() {
@@ -916,6 +945,7 @@ function saveSession() {
       file: state.file, // null for a never-saved game
       name: $('savename').value,
       title: document.title,
+      autosaveName: state.autosaveName, // keep writing the same autosave file
     }));
   } catch {
     /* quota or serialization failure — recovery is best-effort */
@@ -963,6 +993,7 @@ async function restoreSession() {
   await loadDir(s.dir || ''); // populate the file browser context
   state.game = game;
   state.file = s.file ?? null;
+  state.autosaveName = s.autosaveName ?? null;
   setDirty(true);
   $('savename').value = s.name || 'untitled.sgf';
   document.title = s.title || 'restored — SGF viewer';
@@ -1038,6 +1069,7 @@ function startFreshGame(size) {
   const today = new Date().toISOString().slice(0, 10);
   state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
   state.file = null;
+  state.autosaveName = null; // this game gets its own autosave file
   setDirty(false);
   clearSession(); // empty game isn't worth restoring until a move is played
   $('savename').value = 'untitled.sgf';

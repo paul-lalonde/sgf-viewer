@@ -3,3 +3,4 @@ games.tgz
 *.edit.sgf
 gtp_logs/
 analysis_logs/
+autosaves/

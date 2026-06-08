@@ -260,14 +260,11 @@ class ViewerHandler(SimpleHTTPRequestHandler):
         rel = parse_qs(url.query).get("path", [""])[0]
         root = os.path.abspath(os.getcwd())
         target = os.path.abspath(os.path.join(root, rel.strip("/")))
-        ok = (
-            os.path.commonpath([root, target]) == root
-            and target.lower().endswith(".sgf")
-            and os.path.isdir(os.path.dirname(target))
-        )
+        ok = os.path.commonpath([root, target]) == root and target.lower().endswith(".sgf")
         if not ok:
             self.send_error(400, "bad save path")
             return
+        os.makedirs(os.path.dirname(target), exist_ok=True)  # e.g. autosaves/
         length = int(self.headers.get("Content-Length", 0))
         with open(target, "wb") as f:
             f.write(self.rfile.read(length))
