@@ -34,6 +34,7 @@ aside {
   flex: 0 1 auto;
   max-height: 55%;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-top: 2px solid #40a0a0;
   padding: 8px;
   background: #fafafa;
@@ -111,6 +112,7 @@ main {
   flex-direction: column;
   align-items: center;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: 10px 16px;
   min-width: 0;
 }
@@ -333,6 +335,7 @@ body.multirecord #recordbar { display: block; }
   flex: 0 1 auto;
   max-height: 45%;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   border-top: 2px solid #b8860b;
   background: #fafafa;
 }
@@ -357,6 +360,7 @@ body.joseki #tree { flex: 1; }
   flex: 0 1 auto;
   max-height: 50%;
   overflow-y: auto;
+  scrollbar-gutter: stable; /* reserve room so text doesn't run under the scrollbar */
   border-top: 2px solid #ddd;
   background: #fafafa;
 }
@@ -375,6 +379,7 @@ body.sidecomment #tree { flex: 1; }
 
 /* the relocated #comment fills the panel rather than the board column */
 #commentpane #comment {
+  width: auto;
   max-width: none;
   padding: 8px;
 }
