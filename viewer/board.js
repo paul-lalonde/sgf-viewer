@@ -16,6 +16,7 @@ export class Board {
     this.ownership = null; // size*size of [-1,1], +White/-Black, or null
     this.candidates = null; // [{x, y, text, rank}] engine suggestions, or null
     this.view = null; // {x0,y0,x1,y1} crop (SGF VW), or null = whole board
+    this.showNumbers = false; // draw move numbers on stones
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -47,6 +48,13 @@ export class Board {
   // Engine candidate moves: [{x, y, text, rank}] (rank 0 = best), or null.
   setCandidates(candidates) {
     this.candidates = candidates;
+    this.draw();
+  }
+
+  // Toggle move numbers drawn on the stones.
+  setShowNumbers(on) {
+    if (this.showNumbers === on) return;
+    this.showNumbers = on;
     this.draw();
   }
 
@@ -163,14 +171,15 @@ export class Board {
   }
 
   _drawStones(ctx, m) {
-    const { grid } = this.position;
+    const { grid, moveNumbers } = this.position;
     const r = m.cell * 0.47;
     for (let y = m.y0; y <= m.y1; y++) {
       for (let x = m.x0; x <= m.x1; x++) {
         const stone = grid[y][x];
         if (!stone) continue;
+        const cx = this._sx(m, x), cy = this._sy(m, y);
         ctx.beginPath();
-        ctx.arc(this._sx(m, x), this._sy(m, y), stone === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
+        ctx.arc(cx, cy, stone === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
         if (stone === BLACK) {
           ctx.fillStyle = '#000';
           ctx.fill();
@@ -180,6 +189,15 @@ export class Board {
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 1;
           ctx.stroke();
+        }
+        const num = this.showNumbers && moveNumbers && moveNumbers[y][x];
+        if (num) {
+          ctx.fillStyle = stone === BLACK ? '#fff' : '#000';
+          const digits = num >= 100 ? 0.62 : num >= 10 ? 0.78 : 1;
+          ctx.font = `${(r * digits).toFixed(1)}px system-ui, sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(num), cx, cy);
         }
       }
     }
@@ -226,6 +244,7 @@ export class Board {
 
   _drawLastMove(ctx, m) {
     const { lastMove } = this.position;
+    if (this.showNumbers) return; // the number already marks the last move
     if (!lastMove || !this._visible(m, lastMove.x, lastMove.y)) return;
     ctx.beginPath();
     ctx.arc(this._sx(m, lastMove.x), this._sy(m, lastMove.y), m.cell * 0.26, 0, Math.PI * 2);

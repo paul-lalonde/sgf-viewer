@@ -28,14 +28,17 @@ export class Game {
   }
 
   // Replay from the root to the current node. Returns
-  // {grid, lastMove, moveNumber, captures: {[BLACK], [WHITE]}, marks}.
+  // {grid, lastMove, moveNumber, captures, marks, moveNumbers}, where
+  // moveNumbers[y][x] is the move that placed the stone currently there
+  // (0 = none / setup stone), for optional on-stone numbering.
   position() {
     const grid = emptyGrid(this.size);
+    const nums = emptyGrid(this.size); // 0 = no number
     let lastMove = null;
     let moveNumber = 0;
     const captures = { [BLACK]: 0, [WHITE]: 0 };
     for (const node of this.path()) {
-      applySetup(grid, node, this.size);
+      applySetup(grid, node, this.size, nums);
       const mv = moveOf(node, this.size);
       if (!mv) {
         // old demo lines add stones via AB/AW: ring the added stone
@@ -48,10 +51,15 @@ export class Game {
         lastMove = null;
         continue;
       }
-      captures[mv.color] += playMove(grid, mv);
+      captures[mv.color] += playMove(grid, mv, nums);
+      if (grid[mv.y][mv.x] === mv.color) nums[mv.y][mv.x] = moveNumber; // not a suicide
       lastMove = mv;
     }
-    return { grid, lastMove, moveNumber, captures, marks: marksOf(this.current, this.size) };
+    return {
+      grid, lastMove, moveNumber, captures,
+      marks: marksOf(this.current, this.size),
+      moveNumbers: nums,
+    };
   }
 
   // Effective board-crop (SGF VW) at the current node: the bounding box
@@ -367,10 +375,13 @@ function marksOf(node, size) {
 
 const SETUP = [['AB', BLACK], ['AW', WHITE], ['AE', EMPTY]];
 
-function applySetup(grid, node, size) {
+function applySetup(grid, node, size, nums) {
   for (const [prop, color] of SETUP) {
     for (const value of node.props[prop] || []) {
-      for (const { x, y } of expandPoints(value, size)) grid[y][x] = color;
+      for (const { x, y } of expandPoints(value, size)) {
+        grid[y][x] = color;
+        if (nums) nums[y][x] = 0; // setup stones carry no move number
+      }
     }
   }
 }
@@ -392,23 +403,27 @@ function expandPoints(value, size) {
 }
 
 // Place a stone, remove dead enemy groups (then suicide). Returns the
-// number of enemy stones captured.
-function playMove(grid, { x, y, color }) {
+// number of enemy stones captured. `nums` (optional) tracks per-point
+// move numbers and is cleared wherever a stone is removed.
+function playMove(grid, { x, y, color }, nums) {
   grid[y][x] = color;
   const enemy = color === BLACK ? WHITE : BLACK;
   let captured = 0;
   for (const [nx, ny] of neighbors(grid, x, y)) {
-    if (grid[ny][nx] === enemy) captured += captureIfDead(grid, nx, ny);
+    if (grid[ny][nx] === enemy) captured += captureIfDead(grid, nx, ny, nums);
   }
-  captureIfDead(grid, x, y); // suicide is legal under some rules
+  captureIfDead(grid, x, y, nums); // suicide is legal under some rules
   return captured;
 }
 
-function captureIfDead(grid, x, y) {
+function captureIfDead(grid, x, y, nums) {
   if (grid[y][x] === EMPTY) return 0;
   const { stones, liberties } = groupAt(grid, x, y);
   if (liberties > 0) return 0;
-  for (const [sx, sy] of stones) grid[sy][sx] = EMPTY;
+  for (const [sx, sy] of stones) {
+    grid[sy][sx] = EMPTY;
+    if (nums) nums[sy][sx] = 0;
+  }
   return stones.length;
 }
 

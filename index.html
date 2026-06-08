@@ -15,12 +15,15 @@
       <span id="path">/</span>
     </div>
     <div id="filelist"></div>
+    <div id="sideinfo"></div>
   </aside>
   <button id="showfiles" title="Show file browser (f)">files &#187;</button>
 
   <main>
-    <div id="info"></div>
-    <div id="gamecomment"></div>
+    <div id="topinfo">
+      <div id="info"></div>
+      <div id="gamecomment"></div>
+    </div>
     <div id="boardwrap"><canvas id="board"></canvas></div>
     <div id="controls">
       <button id="b-prevfile" title="Previous file (p)">&#8676; file</button>
@@ -58,6 +61,7 @@
         <button class="tool" id="enginemode" title="Play against KataGo (e)">vs engine</button>
         <button class="tool" id="exploremode" title="Walk KataGo's top moves (x)">explore</button>
         <button class="tool" id="scorebtn" title="Estimate score & territory (s)">score</button>
+        <button class="tool" id="numbersbtn" title="Move numbers on stones (m)">#</button>
         <select id="strength" title="Engine strength (human-rank imitation)">
           <option value="rank_15k">15 kyu</option>
           <option value="rank_12k">12 kyu</option>

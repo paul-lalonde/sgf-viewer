@@ -199,6 +199,20 @@ function setInfo() {
   $('info').textContent = bits.join(' · ');
   // GC = a comment on the whole game, distinct from per-node comments
   $('gamecomment').textContent = (state.game.root.props.GC || []).join('\n');
+  placeInfo();
+}
+
+// Keep the game-info banner above the board while it's short; once it
+// runs past ~3 lines (e.g. Kogo's long copyright block) move it into the
+// lower split of the file pane, where it scrolls and tucks away with the
+// rest of that sidebar.
+function placeInfo() {
+  const top = $('topinfo');
+  const main = document.querySelector('main');
+  main.insertBefore(top, main.firstChild); // measure at full board width
+  const cs = getComputedStyle($('info'));
+  const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
+  if (top.offsetHeight > line * 3.3) $('sideinfo').appendChild(top);
 }
 
 function showError(msg) {
@@ -589,6 +603,15 @@ function fmtDelta(d) {
   return (d > 0 ? '+' : '') + d.toFixed(1);
 }
 
+// ---------- move numbers (view toggle) -------------------------------------
+
+function setNumbers(on) {
+  board.setShowNumbers(on);
+  $('numbersbtn').classList.toggle('active', on);
+  localStorage.setItem('sgf-numbers', on ? '1' : '');
+}
+$('numbersbtn').addEventListener('click', () => setNumbers(!board.showNumbers));
+
 // ---------- editing -------------------------------------------------------
 
 function setDirty(dirty) {
@@ -806,6 +829,7 @@ const KEYS = {
   e: () => setEngineMode(!state.engine),
   x: () => setExploreMode(!state.explore),
   s: () => toggleScore(),
+  m: () => setNumbers(!board.showNumbers),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -821,6 +845,7 @@ document.addEventListener('keydown', (e) => {
 // ---------- startup -------------------------------------------------------
 
 (async function init() {
+  setNumbers(localStorage.getItem('sgf-numbers') === '1'); // restore the view pref
   // unsaved work takes precedence over the hash: restore it if present
   if (await restoreSession()) return;
   const target = decodeURIComponent(location.hash.slice(1));
