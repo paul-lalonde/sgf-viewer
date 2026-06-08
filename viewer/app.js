@@ -663,8 +663,11 @@ function updateJoseki(pos) {
 
 // Re-anchor the navigator on a corner's match (resets the walked line).
 function anchorJoseki(result) {
+  // unchanged only if BOTH the corner and the node are the same — two
+  // corners can share one dictionary node (same shape) yet need different
+  // transforms, so guarding on the node alone would ignore a corner switch
+  if (result.corner === state.josekiSel && result.node === state.josekiBase) return;
   state.josekiSel = result.corner;
-  if (result.node === state.josekiBase) return; // unchanged
   state.josekiBase = result.node;
   state.josekiNode = result.node;
   state.josekiT = result.transform;
