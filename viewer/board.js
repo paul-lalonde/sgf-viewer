@@ -257,6 +257,13 @@ export class Board {
       if (!this._visible(m, mark.x, mark.y)) continue;
       const cx = this._sx(m, mark.x), cy = this._sy(m, mark.y);
       const stone = grid[mark.y][mark.x];
+      // Dojo marks a particular stone with TB/TW; a same-colour territory
+      // square is invisible on it, so draw a contrasting square instead.
+      if (mark.type.startsWith('territory') && stone !== EMPTY) {
+        ctx.fillStyle = stone === BLACK ? '#fff' : '#000';
+        ctx.fillRect(cx - m.cell * 0.14, cy - m.cell * 0.14, m.cell * 0.28, m.cell * 0.28);
+        continue;
+      }
       // marks on empty points get a white patch so grid lines don't cross them
       if (stone === EMPTY && !mark.type.startsWith('territory')) {
         ctx.fillStyle = '#fff';

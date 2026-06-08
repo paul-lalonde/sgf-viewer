@@ -33,6 +33,7 @@ export class TreeView {
     this.lines = []; // parents always precede their variations
     this.game = null;
     this._cur = null;
+    this.allowOutline = false; // .wgf lessons render as a slide outline
   }
 
   setGame(game) {
@@ -43,6 +44,13 @@ export class TreeView {
     this.lines = [];
     this._cur = null;
     if (!game) return;
+    // A linear, move-free record (a .wgf teaching slideshow) has no tree
+    // to show — render a clickable slide outline instead.
+    if (this.allowOutline && isLinearLesson(game)) {
+      this._buildOutline();
+      this.update();
+      return;
+    }
     this.wrap = document.createElement('div');
     this.wrap.className = 'treewrap';
     this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -79,6 +87,27 @@ export class TreeView {
     if (info.seg) info.el.textContent = String(info.num);
     // center horizontally so upcoming forks are visible
     info.el.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+
+  // --- slide outline (linear .wgf lessons) ------------------------------
+
+  // Render the record's nodes as a vertical, numbered, clickable list —
+  // titled by each node's N[] name, else its first comment line.
+  _buildOutline() {
+    const list = document.createElement('div');
+    list.className = 'outline';
+    let node = this.game.root;
+    for (let i = 1; node; node = node.children[0], i++) {
+      const row = document.createElement('div');
+      row.className = 'oline';
+      row.innerHTML = `<span class="onum">${i}</span><span class="otitle"></span>`;
+      row.lastChild.textContent = slideTitle(node, i);
+      const n = node;
+      row.addEventListener('click', () => this.onSelect(n));
+      list.appendChild(row);
+      this.info.set(node, { el: row });
+    }
+    this.container.appendChild(list);
   }
 
   // --- construction -----------------------------------------------------
@@ -290,6 +319,25 @@ export class TreeView {
     }
     this.svg.innerHTML = d ? `<path d="${d}" fill="none" stroke="#bbb" stroke-width="1.5"/>` : '';
   }
+}
+
+// A record with no moves and no branches anywhere — a .wgf teaching
+// slideshow, where every node is a full-board setup (XB/XW) position.
+function isLinearLesson(game) {
+  for (let n = game.root; n; n = n.children[0]) {
+    if (isMove(n) || n.children.length > 1) return false;
+    if (!n.children.length) break;
+  }
+  return true;
+}
+
+// A slide's outline label: its N[] name, else the first non-empty comment
+// line (dropping Dojo's leading "^"), else a positional fallback.
+function slideTitle(node, i) {
+  if (node.props.N) return node.props.N[0];
+  const line = (node.props.C || [''])[0]
+    .split(/\r?\n/).map((s) => s.replace(/^\^/, '').trim()).find(Boolean);
+  return line ? line.slice(0, 70) : `slide ${i}`;
 }
 
 // A "step" is one stone appearing: a move, or a single-stone AB/AW node

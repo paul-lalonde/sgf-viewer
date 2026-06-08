@@ -248,6 +248,26 @@ body.multirecord #recordbar { display: block; }
   font: 12px ui-monospace, Menlo, monospace;
 }
 
+/* slide outline: linear .wgf lessons (no moves, no branches) list their
+   nodes as a clickable, numbered table of contents instead of a tree */
+.outline { display: flex; flex-direction: column; }
+
+.oline {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  font: 13px system-ui, sans-serif;
+  white-space: normal;
+}
+
+.oline:hover { background: #f0f0f0; }
+.oline.current { background: #e6efff; outline: 2px solid #d04030; }
+.oline .onum { color: #999; min-width: 1.6em; text-align: right; flex: none; }
+.oline .otitle { color: #222; }
+
 /* Lines of play are packed by TreeView._layout into absolute rows;
    connector bars live in the SVG layer behind them. */
 .treewrap { position: relative; }

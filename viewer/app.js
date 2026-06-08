@@ -116,6 +116,7 @@ async function loadFile(name) {
   state.records = records;
   state.isWgf = isWgf;
   state.wgfNames = isWgf ? buildNameIndex(records) : null;
+  tree.allowOutline = isWgf; // .wgf lesson records render as a slide outline
   clearTimeout(state.replyTimer);
   feedback('', '');
   $('savename').value = name.replace(/(\.edit)?\.[sw]gf$/i, '') + '.edit.sgf';
@@ -336,6 +337,7 @@ function followWgfLink(k, text) {
   if (yg[k]) target = parseLinkTarget(yg[k]); // explicit target wins
   else if (findWgfName(text.trim())) target = { name: text.trim() }; // link text is a node name
   else if (yf) target = { name: yf }; // e.g. "Next"
+  else if (node.children.length) target = { next: true }; // "continue" link → next slide
   if (target) navigateWgf(target);
 }
 
@@ -349,6 +351,7 @@ function findWgfName(name) {
 }
 
 function navigateWgf(target) {
+  if (target.next) { if (state.game.next()) refresh(); return; }
   const hit = target.name && findWgfName(target.name);
   if (hit) {
     if (hit.recordIndex !== state.recordIndex) loadRecord(hit.recordIndex);
@@ -1205,6 +1208,7 @@ async function restoreSession() {
   state.autosaveName = s.autosaveName ?? null;
   state.records = null;
   state.isWgf = false;
+  tree.allowOutline = false;
   renderRecordBar();
   setDirty(true);
   $('savename').value = s.name || 'untitled.sgf';
@@ -1283,6 +1287,7 @@ function startFreshGame(size) {
   state.file = null;
   state.records = null;
   state.isWgf = false;
+  tree.allowOutline = false;
   renderRecordBar();
   state.autosaveName = null; // this game gets its own autosave file
   setDirty(false);
