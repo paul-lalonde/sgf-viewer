@@ -144,10 +144,11 @@ for (let corner = 0; corner < 4; corner++) {
 
 // --- match -----------------------------------------------------------------
 
-// Best dictionary match for the current board. Returns
-// {entry, transform, matched, continuation:[{x,y,color}], comment} or null.
-export function match(index, grid, size, { minStones = 2 } = {}) {
-  let best = null;
+// Best dictionary match in EACH of your board's corners, deepest first.
+// Returns [{corner, node, matched, transform, comment}] (one per corner
+// that has a match of at least minStones).
+export function matchAll(index, grid, size, { minStones = 2 } = {}) {
+  const best = new Map(); // corner -> {entry, T}
   for (const { corner, diag, swap } of TRANSFORMS) {
     const T = makeTransform(corner, diag, swap, size);
     const Q = cornerSetUnder(grid, size, T);
@@ -161,18 +162,31 @@ export function match(index, grid, size, { minStones = 2 } = {}) {
         seen.add(entry);
         if (entry.stones.length < minStones) continue;
         if (!subset(entry.stones, Q)) continue;
-        if (better(entry, best)) best = { entry, T, matched: entry.stones.length };
+        const cur = best.get(corner);
+        if (!cur || better(entry, cur.entry)) best.set(corner, { entry, T });
       }
     }
   }
-  if (!best) return null;
-  return {
-    node: best.entry.node,
-    matched: best.matched,
-    transform: best.T,
-    comment: (best.entry.node.props.C || []).join('\n'),
-    continuation: continuation(best.entry.node, best.T, size),
-  };
+  const results = [];
+  for (const [corner, b] of best) {
+    results.push({
+      corner,
+      node: b.entry.node,
+      matched: b.entry.stones.length,
+      transform: b.T,
+      comment: (b.entry.node.props.C || []).join('\n'),
+    });
+  }
+  return results.sort((a, b) => b.matched - a.matched);
+}
+
+// Single best match across all corners (deepest), with its mainline
+// continuation; null if nothing matches.
+export function match(index, grid, size, opts) {
+  const all = matchAll(index, grid, size, opts);
+  if (!all.length) return null;
+  const m = all[0];
+  return { ...m, continuation: continuation(m.node, m.transform, size) };
 }
 
 function cornerSetUnder(grid, size, T) {
@@ -194,11 +208,10 @@ function subset(stones, Q) {
 }
 
 // Prefer more stones; tie-break toward a commented node with more children.
-function better(entry, best) {
-  if (!best) return true;
-  if (entry.stones.length !== best.matched) return entry.stones.length > best.matched;
+function better(entry, prev) {
+  if (entry.stones.length !== prev.stones.length) return entry.stones.length > prev.stones.length;
   const score = (n) => (n.props.C ? 2 : 0) + Math.min(n.children.length, 1);
-  return score(entry.node) > score(best.entry.node);
+  return score(entry.node) > score(prev.node);
 }
 
 // The matched node's mainline continuation, mapped onto your board.

@@ -357,6 +357,8 @@ body.joseki #tree { flex: 1; }
 #josekibody .jback { border-color: #999; }
 #josekibody .jplay { background: #b8860b; color: #fff; border-color: #b8860b; }
 #josekibody .jplay:hover { background: #a07408; }
+#josekibody .jcorners { margin-bottom: 6px; }
+#josekibody .jcorner.sel { background: #b8860b; color: #fff; border-color: #b8860b; }
 
 #strength {
   font: 13px system-ui, sans-serif;

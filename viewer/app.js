@@ -3,7 +3,9 @@
 
 import { Board } from './board.js';
 import { Game, isMove, leafVerdict, gtpPoint, moveOf } from './game.js';
-import { buildIndex, match as matchJoseki } from './joseki.js';
+import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
+
+const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
 const JOSEKI_SGF = '/joseki/Kogos-Joseki-Dictionary.sgf';
 const COLS = 'ABCDEFGHJKLMNOPQRST';
@@ -645,21 +647,28 @@ async function loadJosekiIndex() {
 
 function updateJoseki(pos) {
   if (state.josekiStatus !== 'ready') return; // loading/error message already shown
-  const m = matchJoseki(state.josekiIndex, pos.grid, state.game.size);
-  if (!m) {
+  const results = matchJosekiAll(state.josekiIndex, pos.grid, state.game.size);
+  state.josekiResults = results;
+  if (!results.length) {
     board.setJosekiGhosts(null);
     state.josekiBase = null;
-    setJosekiBody('<div class="jmsg">no joseki match in this position</div>');
+    setJosekiBody('<div class="jmsg">no joseki match in any corner</div>');
     return;
   }
-  if (m.node !== state.josekiBase) {
-    // your board position moved: re-anchor the navigator on the new match
-    state.josekiBase = m.node;
-    state.josekiNode = m.node;
-    state.josekiT = m.transform;
-    state.josekiMatched = m.matched;
-  }
+  // keep the corner you were looking at if it still matches, else the deepest
+  const sel = results.find((r) => r.corner === state.josekiSel) || results[0];
+  anchorJoseki(sel);
   renderJosekiNav();
+}
+
+// Re-anchor the navigator on a corner's match (resets the walked line).
+function anchorJoseki(result) {
+  state.josekiSel = result.corner;
+  if (result.node === state.josekiBase) return; // unchanged
+  state.josekiBase = result.node;
+  state.josekiNode = result.node;
+  state.josekiT = result.transform;
+  state.josekiMatched = result.matched;
 }
 
 // Navigator at state.josekiNode in the dictionary subtree: numbered
@@ -702,7 +711,14 @@ function renderJosekiNav() {
     : '<div class="jmsg">(end of this joseki line)</div>';
   const nav = (node !== base ? '<span class="jmove jback">↑ back</span>' : '') +
     (path.length ? '<span class="jmove jplay">play this line into my game</span>' : '');
+  // corner selector when more than one corner matched
+  const corners = state.josekiResults.length > 1
+    ? '<div class="jcont jcorners">' + state.josekiResults.map((r) =>
+        `<span class="jmove jcorner${r.corner === state.josekiSel ? ' sel' : ''}" data-c="${r.corner}" title="${CORNER_NAMES[r.corner]}">${CORNER_NAMES[r.corner].split(' ')[0]} ${r.matched}</span>`).join('') +
+      '</div>'
+    : '';
   setJosekiBody(
+    corners +
     `<div class="jmsg">${where}; pick a variation:</div>` +
     comment + choiceChips + (nav ? `<div class="jcont jnav">${nav}</div>` : ''),
   );
@@ -731,6 +747,15 @@ function escapeHtml(s) {
 // walked line into your own game.
 $('josekibody').addEventListener('click', (e) => {
   if (!state.game || !state.josekiBase) return;
+  const cornerEl = e.target.closest('.jcorner');
+  if (cornerEl) {
+    const r = state.josekiResults.find((x) => x.corner === +cornerEl.dataset.c);
+    if (r) {
+      anchorJoseki(r);
+      renderJosekiNav();
+    }
+    return;
+  }
   if (e.target.closest('.jback')) {
     if (state.josekiNode !== state.josekiBase) state.josekiNode = state.josekiNode.parent;
     renderJosekiNav();
