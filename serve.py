@@ -298,7 +298,7 @@ class ViewerHandler(SimpleHTTPRequestHandler):
                 continue
             if entry.is_dir():
                 dirs.append(entry.name)
-            elif entry.name.lower().endswith(".sgf"):
+            elif entry.name.lower().endswith((".sgf", ".wgf")):
                 files.append(entry.name)
         rel_out = os.path.relpath(target, root)
         payload = {"path": "" if rel_out == "." else rel_out, "dirs": dirs, "files": files}

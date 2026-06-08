@@ -7,6 +7,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
+import { parseWgf, recordTitle } from './wgf.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -98,27 +99,67 @@ async function loadFile(name) {
     return;
   }
   const text = decodeSGF(await res.arrayBuffer());
-  let game;
+  // .wgf (Bruce Wilcox's Go Dojo): a collection of named lesson records
+  const isWgf = name.toLowerCase().endsWith('.wgf');
+  let records;
   try {
-    game = new Game(text);
+    records = isWgf ? parseWgf(text) : [new Game(text).root];
   } catch (err) {
     showError(`${path}: ${err.message}`);
     return;
   }
-  state.game = game;
+  if (!records.length) {
+    showError(`${path}: no records`);
+    return;
+  }
   state.file = name;
+  state.records = records;
   clearTimeout(state.replyTimer);
   feedback('', '');
-  setDirty(false);
-  $('savename').value = name.replace(/(\.edit)?\.sgf$/i, '') + '.edit.sgf';
+  $('savename').value = name.replace(/(\.edit)?\.[sw]gf$/i, '') + '.edit.sgf';
   $('savestatus').textContent = '';
-  document.title = `${name} — SGF viewer`;
-  board.setSize(game.size);
-  tree.setGame(game);
-  setInfo();
+  renderRecordBar();
+  loadRecord(0);
   markCurrentFile();
+}
+
+// Show one record of the loaded file (index into state.records).
+function loadRecord(i) {
+  state.recordIndex = i;
+  state.game = Game.fromRoot(state.records[i]);
+  state.autosaveName = null;
+  setDirty(false);
+  const title = state.records.length > 1
+    ? `${recordTitle(state.records[i], i)} — ${state.file}`
+    : `${state.file} — SGF viewer`;
+  document.title = title;
+  $('recordsel').value = String(i);
+  board.setSize(state.game.size);
+  tree.setGame(state.game);
+  setInfo();
   refresh();
 }
+
+// A dropdown to pick among a multi-record file's lessons (.wgf).
+function renderRecordBar() {
+  const sel = $('recordsel');
+  const multi = state.records && state.records.length > 1;
+  document.body.classList.toggle('multirecord', multi);
+  if (!multi) {
+    sel.innerHTML = '';
+    return;
+  }
+  sel.innerHTML = state.records
+    .map((r, i) => `<option value="${i}">${i + 1}. ${escapeHtml(recordTitle(r, i))}</option>`)
+    .join('');
+}
+$('recordsel').addEventListener('change', (e) => {
+  if (state.dirty && !confirm('Discard unsaved changes?')) {
+    e.target.value = String(state.recordIndex);
+    return;
+  }
+  loadRecord(+e.target.value);
+});
 
 function nextFile(step) {
   const i = state.files.indexOf(state.file) + step;
@@ -994,6 +1035,8 @@ async function restoreSession() {
   state.game = game;
   state.file = s.file ?? null;
   state.autosaveName = s.autosaveName ?? null;
+  state.records = null;
+  renderRecordBar();
   setDirty(true);
   $('savename').value = s.name || 'untitled.sgf';
   document.title = s.title || 'restored — SGF viewer';
@@ -1069,6 +1112,8 @@ function startFreshGame(size) {
   const today = new Date().toISOString().slice(0, 10);
   state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
   state.file = null;
+  state.records = null;
+  renderRecordBar();
   state.autosaveName = null; // this game gets its own autosave file
   setDirty(false);
   clearSession(); // empty game isn't worth restoring until a move is played

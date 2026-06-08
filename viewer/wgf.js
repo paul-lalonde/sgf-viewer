@@ -1,0 +1,81 @@
+// wgf.js — Bruce Wilcox's "Go Dojo" .wgf study files.
+//
+// WGF is SGF with two differences: `//` line comments, and a fat
+// vocabulary of Dojo-only properties (X*/Y*: quiz answers, sector
+// markers, hyperlinks…). We strip the comments and reuse the SGF parser;
+// the standard properties (B/W/AB/AW, C, N, LB, TR, CR, SZ…) render in
+// the normal viewer, and the unknown Dojo properties are simply ignored.
+//
+// A .wgf file is a COLLECTION of records (separate lesson trees), each
+// titled by an N[] property near its root.
+
+import { parseSGF } from './sgf.js';
+
+// Drop `//`…end-of-line comments that sit OUTSIDE [...] values, so we
+// don't corrupt comment text that happens to contain "//".
+export function stripComments(text) {
+  let out = '';
+  let inValue = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inValue) {
+      out += c;
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === ']') inValue = false;
+    } else if (c === '[') {
+      inValue = true;
+      out += c;
+    } else if (c === '/' && text[i + 1] === '/') {
+      while (i < text.length && text[i] !== '\n') i++; // skip to newline
+      out += '\n';
+    } else {
+      out += c;
+    }
+  }
+  return out;
+}
+
+// Parse a .wgf into its records (SGF node trees). Records that omit SZ
+// inherit the file's board size (Dojo keeps one size per file), and each
+// record's Dojo setup is converted to standard SGF (see convertSetup).
+export function parseWgf(text) {
+  const records = parseSGF(stripComments(text)).filter(Boolean);
+  const fileSize = records.find((r) => r.props.SZ)?.props.SZ[0] || '19';
+  for (const r of records) {
+    if (!r.props.SZ) r.props.SZ = [fileSize];
+    convertSetup(r, parseInt(r.props.SZ[0], 10) || 19);
+  }
+  return records;
+}
+
+// Dojo defines each lesson position with XB/XW (full board state per
+// node, replacing the previous), not SGF's incremental AB/AW. Convert
+// every XB/XW node to: clear the whole board (AE) then place the stones
+// (AB/AW) — so our normal SGF replay reproduces the reset semantics and
+// every viewer feature works unchanged. Moves (B/W) are left as-is.
+function convertSetup(root, size) {
+  const last = String.fromCharCode(97 + size - 1);
+  const whole = `aa:${last}${last}`;
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    if (n.props.XB || n.props.XW) {
+      n.props.AE = [whole];
+      if (n.props.XB) n.props.AB = (n.props.AB || []).concat(n.props.XB);
+      if (n.props.XW) n.props.AW = (n.props.AW || []).concat(n.props.XW);
+      delete n.props.XB;
+      delete n.props.XW;
+    }
+    stack.push(...n.children);
+  }
+}
+
+// A record's display title: the first N[] near its root, else a number.
+export function recordTitle(root, index) {
+  for (let n = root, k = 0; n && k < 3; n = n.children[0], k++) {
+    if (n.props.N) return n.props.N[0];
+  }
+  return `record ${index + 1}`;
+}

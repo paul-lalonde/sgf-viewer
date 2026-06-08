@@ -8,9 +8,20 @@ export class Game {
   constructor(text) {
     const games = parseSGF(text);
     if (!games.length || !games[0]) throw new Error('no game tree found');
-    this.root = games[0];
-    this.size = parseInt((this.root.props.SZ || ['19'])[0], 10) || 19;
-    this.current = this.root;
+    this._init(games[0]);
+  }
+
+  // Build a Game from an already-parsed node tree (e.g. one .wgf record).
+  static fromRoot(root) {
+    const g = Object.create(Game.prototype);
+    g._init(root);
+    return g;
+  }
+
+  _init(root) {
+    this.root = root;
+    this.size = parseInt((root.props.SZ || ['19'])[0], 10) || 19;
+    this.current = root;
   }
 
   rootProp(name) {
@@ -382,7 +393,9 @@ function marksOf(node, size) {
 
 // --- rules helpers -----------------------------------------------------
 
-const SETUP = [['AB', BLACK], ['AW', WHITE], ['AE', EMPTY]];
+// AE (clear) first, then place — so a node can reset a region and add
+// stones in one step (used by the .wgf → SGF conversion's full-board reset).
+const SETUP = [['AE', EMPTY], ['AB', BLACK], ['AW', WHITE]];
 
 function applySetup(grid, node, size, nums) {
   for (const [prop, color] of SETUP) {

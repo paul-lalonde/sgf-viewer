@@ -115,6 +115,23 @@ main {
   min-width: 0;
 }
 
+#recordbar {
+  display: none;
+  font-size: 13px;
+  color: #444;
+  padding: 2px 0 6px;
+}
+
+body.multirecord #recordbar { display: block; }
+
+#recordbar select {
+  font: 13px system-ui, sans-serif;
+  max-width: 60vw;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
 #info {
   font-size: 14px;
   padding: 2px 0 4px;
