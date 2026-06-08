@@ -121,6 +121,19 @@ The overlay belongs to one node and clears as soon as you move elsewhere;
 press the button again to dismiss it. Needs the same KataGo setup as play
 mode.
 
+### Joseki dictionary
+
+The **joseki** button (or `j`) matches the current position against a
+joseki dictionary and overlays the matched line's continuation as
+numbered ghost stones, with the joseki's comment and a clickable
+continuation list in a panel below the game tree (click a move to play
+it). Matching is shape-based, so it's tolerant of move order, the
+16-fold symmetry (4 corners × diagonal × **colour swap**), and
+confounding stones nearby — it finds the deepest joseki whose stones are
+all present in one of your corners. Needs a dictionary at
+`joseki/Kogos-Joseki-Dictionary.sgf` (see the data sources above; the
+index over its ~63k positions builds in ~0.1s on first use).
+
 ### Tsumego mode
 
 The **tsumego** button (or `t`) switches board clicks to solving: your

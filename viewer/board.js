@@ -17,6 +17,7 @@ export class Board {
     this.candidates = null; // [{x, y, text, rank}] engine suggestions, or null
     this.view = null; // {x0,y0,x1,y1} crop (SGF VW), or null = whole board
     this.showNumbers = false; // draw move numbers on stones
+    this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -55,6 +56,12 @@ export class Board {
   setShowNumbers(on) {
     if (this.showNumbers === on) return;
     this.showNumbers = on;
+    this.draw();
+  }
+
+  // Joseki continuation overlay: [{x,y,color,label}], or null to clear.
+  setJosekiGhosts(list) {
+    this.josekiGhosts = list;
     this.draw();
   }
 
@@ -116,6 +123,7 @@ export class Board {
     this._drawMarks(ctx, m);
     this._drawLastMove(ctx, m);
     this._drawCandidates(ctx, m);
+    this._drawJosekiGhosts(ctx, m);
     this._drawGhost(ctx, m);
     ctx.restore();
   }
@@ -273,6 +281,37 @@ export class Board {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(c.text, cx, cy);
+      ctx.restore();
+    }
+  }
+
+  // Translucent numbered stones showing a joseki's continuation.
+  _drawJosekiGhosts(ctx, m) {
+    if (!this.josekiGhosts) return;
+    const r = m.cell * 0.46;
+    for (const g of this.josekiGhosts) {
+      if (!this._visible(m, g.x, g.y)) continue;
+      const cx = this._sx(m, g.x), cy = this._sy(m, g.y);
+      ctx.save();
+      ctx.globalAlpha = 0.7; // opaque enough that black vs white reads clearly
+      ctx.beginPath();
+      ctx.arc(cx, cy, g.color === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
+      if (g.color === BLACK) {
+        ctx.fillStyle = '#000';
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.95;
+      ctx.fillStyle = g.color === BLACK ? '#fff' : '#000';
+      ctx.font = `bold ${(r * 0.85).toFixed(1)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(g.label, cx, cy);
       ctx.restore();
     }
   }

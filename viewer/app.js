@@ -3,6 +3,11 @@
 
 import { Board } from './board.js';
 import { Game, isMove, leafVerdict, gtpPoint } from './game.js';
+import { buildIndex, match as matchJoseki } from './joseki.js';
+
+const JOSEKI_SGF = '/joseki/Kogos-Joseki-Dictionary.sgf';
+const COLS = 'ABCDEFGHJKLMNOPQRST';
+const coord = (x, y, size) => COLS[x] + (size - y);
 import { TreeView } from './tree.js';
 import { BLACK, WHITE } from './colors.js';
 
@@ -13,6 +18,7 @@ const state = {
   tool: 'play', dirty: false, solve: false, replyTimer: null,
   engine: false, engineBusy: false, scoreNode: null,
   explore: false, exploreBusy: false, exploreNode: null,
+  joseki: false, josekiIndex: null, josekiStatus: '',
 };
 
 const board = new Board($('board'), { onPointClick: onBoardClick });
@@ -176,6 +182,8 @@ function refresh() {
   $('movesat').textContent = board.showNumbers && pos.movesAt.length
     ? pos.movesAt.map((n) => `${n.lost} at ${n.shown}`).join(' · ')
     : '';
+  if (state.joseki) updateJoseki(pos);
+  else if (board.josekiGhosts) board.setJosekiGhosts(null);
   persist();
 }
 
@@ -608,6 +616,80 @@ function fmtDelta(d) {
   return (d > 0 ? '+' : '') + d.toFixed(1);
 }
 
+// ---------- joseki dictionary matching -------------------------------------
+
+function setJosekiMode(on) {
+  state.joseki = on;
+  document.body.classList.toggle('joseki', on);
+  $('josekibtn').classList.toggle('active', on);
+  if (on && !state.josekiIndex && state.josekiStatus !== 'loading') loadJosekiIndex();
+  if (state.game) refresh();
+}
+$('josekibtn').addEventListener('click', () => setJosekiMode(!state.joseki));
+
+async function loadJosekiIndex() {
+  state.josekiStatus = 'loading';
+  setJosekiBody('<div class="jmsg">loading joseki dictionary…</div>');
+  try {
+    const res = await fetch(JOSEKI_SGF);
+    if (!res.ok) throw new Error(`not found at ${JOSEKI_SGF}`);
+    state.josekiIndex = buildIndex(await res.text());
+    state.josekiStatus = 'ready';
+  } catch (err) {
+    state.josekiStatus = 'error';
+    setJosekiBody(`<div class="jmsg">⚠ ${err.message}</div>`);
+    return;
+  }
+  if (state.joseki && state.game) refresh();
+}
+
+let josekiCont = []; // current continuation, for click-to-play
+
+function updateJoseki(pos) {
+  if (state.josekiStatus !== 'ready') return; // loading/error message already shown
+  const m = matchJoseki(state.josekiIndex, pos.grid, state.game.size);
+  josekiCont = m ? m.continuation : [];
+  const size = state.game.size;
+  board.setJosekiGhosts(
+    m ? m.continuation.map((c, i) => ({ ...c, label: String(i + 1) })) : null,
+  );
+  if (!m) {
+    setJosekiBody('<div class="jmsg">no joseki match in this position</div>');
+    return;
+  }
+  const head = `<div class="jmsg">matched ${m.matched} stones</div>`;
+  const comment = m.comment ? `<div class="jcomment">${escapeHtml(m.comment)}</div>` : '';
+  const moves = m.continuation
+    .map((c, i) => `<span class="jmove" data-i="${i}">${i + 1}·${coord(c.x, c.y, size)}</span>`)
+    .join('');
+  const cont = moves
+    ? `<div class="jmsg">continuation (click to play):</div><div class="jcont">${moves}</div>`
+    : '<div class="jmsg">(end of this joseki line)</div>';
+  setJosekiBody(head + comment + cont);
+}
+
+function setJosekiBody(html) {
+  $('josekibody').innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+}
+
+// Click a continuation chip: play that move and everything before it.
+$('josekibody').addEventListener('click', (e) => {
+  const chip = e.target.closest('.jmove');
+  if (!chip || !state.game) return;
+  const upto = +chip.dataset.i;
+  for (let i = 0; i <= upto; i++) {
+    const c = josekiCont[i];
+    if (!c || state.game.playAt(c.x, c.y) === null) break;
+  }
+  setDirty(true);
+  tree.setGame(state.game);
+  refresh();
+});
+
 // ---------- move numbers (view toggle) -------------------------------------
 
 function setNumbers(on) {
@@ -836,6 +918,7 @@ const KEYS = {
   x: () => setExploreMode(!state.explore),
   s: () => toggleScore(),
   m: () => setNumbers(!board.showNumbers),
+  j: () => setJosekiMode(!state.joseki),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;

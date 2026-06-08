@@ -308,6 +308,51 @@ main {
 #exploremode.active { background: #00695c; border-color: #00695c; color: #fff; }
 #scorebtn.active { background: #6a1b9a; border-color: #6a1b9a; color: #fff; }
 #numbersbtn.active { background: #1a1a1a; border-color: #1a1a1a; color: #fff; }
+#josekibtn.active { background: #b8860b; border-color: #b8860b; color: #fff; }
+
+/* joseki panel: lower split of the tree pane, shown only in joseki mode */
+#josekipane {
+  display: none;
+  flex: 0 1 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  border-top: 2px solid #b8860b;
+  background: #fafafa;
+}
+
+body.joseki #josekipane { display: block; }
+body.joseki #tree { flex: 1; }
+
+#josekihead {
+  position: sticky;
+  top: 0;
+  background: #fafafa;
+  padding: 6px 8px;
+  font-weight: 600;
+  border-bottom: 1px solid #eee;
+}
+
+#josekibody { padding: 8px; font-size: 13px; }
+#josekibody .jmsg { color: #666; }
+#josekibody .jcomment { white-space: pre-wrap; color: #222; padding-bottom: 6px; }
+
+#josekibody .jcont {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+#josekibody .jmove {
+  font: 12px ui-monospace, Menlo, monospace;
+  border: 1px solid #bbb;
+  border-radius: 9px;
+  padding: 1px 8px;
+  cursor: pointer;
+  background: #fff;
+}
+
+#josekibody .jmove:hover { background: #f0e6c8; }
 
 #strength {
   font: 13px system-ui, sans-serif;
