@@ -353,6 +353,10 @@ body.joseki #tree { flex: 1; }
 }
 
 #josekibody .jmove:hover { background: #f0e6c8; }
+#josekibody .jnav { margin-top: 8px; }
+#josekibody .jback { border-color: #999; }
+#josekibody .jplay { background: #b8860b; color: #fff; border-color: #b8860b; }
+#josekibody .jplay:hover { background: #a07408; }
 
 #strength {
   font: 13px system-ui, sans-serif;

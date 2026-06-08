@@ -2,7 +2,7 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict, gtpPoint } from './game.js';
+import { Game, isMove, leafVerdict, gtpPoint, moveOf } from './game.js';
 import { buildIndex, match as matchJoseki } from './joseki.js';
 
 const JOSEKI_SGF = '/joseki/Kogos-Joseki-Dictionary.sgf';
@@ -643,29 +643,80 @@ async function loadJosekiIndex() {
   if (state.joseki && state.game) refresh();
 }
 
-let josekiCont = []; // current continuation, for click-to-play
-
 function updateJoseki(pos) {
   if (state.josekiStatus !== 'ready') return; // loading/error message already shown
   const m = matchJoseki(state.josekiIndex, pos.grid, state.game.size);
-  josekiCont = m ? m.continuation : [];
-  const size = state.game.size;
-  board.setJosekiGhosts(
-    m ? m.continuation.map((c, i) => ({ ...c, label: String(i + 1) })) : null,
-  );
   if (!m) {
+    board.setJosekiGhosts(null);
+    state.josekiBase = null;
     setJosekiBody('<div class="jmsg">no joseki match in this position</div>');
     return;
   }
-  const head = `<div class="jmsg">matched ${m.matched} stones</div>`;
-  const comment = m.comment ? `<div class="jcomment">${escapeHtml(m.comment)}</div>` : '';
-  const moves = m.continuation
-    .map((c, i) => `<span class="jmove" data-i="${i}">${i + 1}·${coord(c.x, c.y, size)}</span>`)
-    .join('');
-  const cont = moves
-    ? `<div class="jmsg">continuation (click to play):</div><div class="jcont">${moves}</div>`
+  if (m.node !== state.josekiBase) {
+    // your board position moved: re-anchor the navigator on the new match
+    state.josekiBase = m.node;
+    state.josekiNode = m.node;
+    state.josekiT = m.transform;
+    state.josekiMatched = m.matched;
+  }
+  renderJosekiNav();
+}
+
+// Navigator at state.josekiNode in the dictionary subtree: numbered
+// ghosts for the line walked from the match, lettered ghosts for the
+// next choices, plus a clickable choice list and comment in the panel.
+function renderJosekiNav() {
+  const size = state.game.size;
+  const { josekiT: T, josekiBase: base, josekiNode: node } = state;
+  const toBoard = (mv) => {
+    const [x, y] = T.toBoard(size - 1 - mv.x, mv.y);
+    return { x, y, color: T.col(mv.color) };
+  };
+  const path = []; // base (exclusive) → node
+  for (let n = node; n && n !== base; n = n.parent) path.push(n);
+  path.reverse();
+  const ghosts = [];
+  path.forEach((n, i) => {
+    const mv = moveOf(n, size);
+    if (mv && !mv.pass) ghosts.push({ ...toBoard(mv), label: String(i + 1) });
+  });
+  const choices = [];
+  node.children.forEach((c, i) => {
+    const mv = moveOf(c, size);
+    if (!mv || mv.pass) return;
+    const letter = childLetter(node, c, size) || String.fromCharCode(97 + i);
+    choices.push({ child: c, letter, ...toBoard(mv) });
+  });
+  choices.forEach((ch) => ghosts.push({ x: ch.x, y: ch.y, color: ch.color, label: ch.letter }));
+  board.setJosekiGhosts(ghosts.length ? ghosts : null);
+  state.josekiChoices = choices;
+
+  const where = path.length
+    ? `${path.length} move${path.length > 1 ? 's' : ''} into the joseki — board shows the line (numbered)`
+    : `matched ${state.josekiMatched} stones`;
+  const comment = node.props.C ? `<div class="jcomment">${escapeHtml(node.props.C.join('\n'))}</div>` : '';
+  const choiceChips = choices.length
+    ? '<div class="jcont">' +
+      choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter}·${coord(ch.x, ch.y, size)}</span>`).join('') +
+      '</div>'
     : '<div class="jmsg">(end of this joseki line)</div>';
-  setJosekiBody(head + comment + cont);
+  const nav = (node !== base ? '<span class="jmove jback">↑ back</span>' : '') +
+    (path.length ? '<span class="jmove jplay">play this line into my game</span>' : '');
+  setJosekiBody(
+    `<div class="jmsg">${where}; pick a variation:</div>` +
+    comment + choiceChips + (nav ? `<div class="jcont jnav">${nav}</div>` : ''),
+  );
+}
+
+function childLetter(parent, child, size) {
+  const mv = moveOf(child, size);
+  if (!mv || mv.pass) return null;
+  const pt = String.fromCharCode(97 + mv.x, 97 + mv.y); // child's move as a dict SGF point
+  for (const v of parent.props.LB || []) {
+    const i = v.indexOf(':');
+    if (i >= 0 && v.slice(0, i) === pt) return v.slice(i + 1);
+  }
+  return null;
 }
 
 function setJosekiBody(html) {
@@ -676,19 +727,40 @@ function escapeHtml(s) {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
-// Click a continuation chip: play that move and everything before it.
+// Navigate the dictionary (descend into a choice, back up) or commit the
+// walked line into your own game.
 $('josekibody').addEventListener('click', (e) => {
-  const chip = e.target.closest('.jmove');
-  if (!chip || !state.game) return;
-  const upto = +chip.dataset.i;
-  for (let i = 0; i <= upto; i++) {
-    const c = josekiCont[i];
-    if (!c || state.game.playAt(c.x, c.y) === null) break;
+  if (!state.game || !state.josekiBase) return;
+  if (e.target.closest('.jback')) {
+    if (state.josekiNode !== state.josekiBase) state.josekiNode = state.josekiNode.parent;
+    renderJosekiNav();
+  } else if (e.target.closest('.jchoice')) {
+    const ch = state.josekiChoices[+e.target.closest('.jchoice').dataset.i];
+    if (ch) {
+      state.josekiNode = ch.child;
+      renderJosekiNav();
+    }
+  } else if (e.target.closest('.jplay')) {
+    playJosekiLine();
+  }
+});
+
+function playJosekiLine() {
+  const size = state.game.size;
+  const { josekiT: T, josekiBase: base, josekiNode: node } = state;
+  const path = [];
+  for (let n = node; n && n !== base; n = n.parent) path.push(n);
+  path.reverse();
+  for (const n of path) {
+    const mv = moveOf(n, size);
+    if (!mv || mv.pass) continue;
+    const [x, y] = T.toBoard(size - 1 - mv.x, mv.y);
+    if (state.game.playAt(x, y) === null) break;
   }
   setDirty(true);
   tree.setGame(state.game);
   refresh();
-});
+}
 
 // ---------- move numbers (view toggle) -------------------------------------
 
