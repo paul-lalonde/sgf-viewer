@@ -362,6 +362,50 @@ $('comment').addEventListener('click', (e) => {
   if (a && state.isWgf && state.game) followWgfLink(+a.dataset.i, a.textContent);
 });
 
+// ---------- Dojo quizzes ---------------------------------------------------
+// A quiz node has YN[point:score] (score 0 = correct, others = wrong
+// categories) and XS[score:response] feedback. We support single-point
+// answers; multi-point "sector line" answers are skipped.
+
+function quizAnswers(node) {
+  const map = {};
+  for (const e of node.props.YN || []) {
+    const m = /^([a-s][a-s])[:=](\d+)$/.exec(e);
+    if (m) map[m[1]] = m[2];
+  }
+  return map;
+}
+
+// The XS response text for a score, or null when it's only board markup
+// (e.g. "TR[qj]") rather than prose.
+function quizResponse(node, score) {
+  for (const e of node.props.XS || []) {
+    if (!e.startsWith(`${score}:`)) continue;
+    const text = e.slice(score.length + 1);
+    if (/^[A-Z]{2}\[/.test(text)) return null;
+    return text.replace(/_([^_]+)_/g, '$1').trim(); // drop link underscores
+  }
+  return null;
+}
+
+function quizClick(x, y) {
+  const node = state.game.current;
+  const map = quizAnswers(node);
+  const pt = String.fromCharCode(97 + x, 97 + y);
+  if (!(pt in map)) {
+    feedback('offpath', '⊘ not one of the answer points');
+    return;
+  }
+  const score = map[pt];
+  const resp = quizResponse(node, score);
+  if (score === '0') {
+    if (state.game.next()) refresh(); // advance to the answer/continuation
+    feedback('correct', `✓ ${resp || 'correct'}`);
+  } else {
+    feedback('fail', `✗ ${resp || 'not the best — try again'}`);
+  }
+}
+
 function showError(msg) {
   $('comment').textContent = `⚠ ${msg}`;
 }
@@ -415,6 +459,10 @@ function onBoardClick(x, y) {
   }
   if (state.explore) {
     exploreClick(x, y);
+    return;
+  }
+  if (state.isWgf && game.current.props.YN) {
+    quizClick(x, y);
     return;
   }
   if (state.tool === 'play') {
