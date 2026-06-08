@@ -207,6 +207,14 @@ body.multirecord #recordbar { display: block; }
 #feedback.fail { color: #c62828; }
 #feedback.offpath { color: #e65100; }
 
+.wlink {
+  color: #1452b8;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.wlink:hover { background: #e6efff; }
+
 #comment {
   white-space: pre-wrap;
   width: min(76vh, 100%, 760px);

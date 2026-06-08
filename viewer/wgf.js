@@ -88,3 +88,47 @@ export function recordTitle(root, index) {
   }
   return `record ${index + 1}`;
 }
+
+// Index every named node (N[]) across the records, so hyperlinks can
+// resolve a target name to {recordIndex, node}.
+export function buildNameIndex(records) {
+  const index = new Map();
+  records.forEach((root, recordIndex) => {
+    const stack = [root];
+    while (stack.length) {
+      const n = stack.pop();
+      for (const name of n.props.N || []) {
+        if (!index.has(name)) index.set(name, { recordIndex, node: n });
+      }
+      stack.push(...n.children);
+    }
+  });
+  return index;
+}
+
+// Resolve a YG[] hyperlink target. Same-file targets are ":NodeName";
+// cross-file are ":B:file.wgf:.label". Returns {name} or {file, label}.
+export function parseLinkTarget(entry) {
+  const s = entry.replace(/^:/, '');
+  if (/^B:/.test(s)) {
+    const [, file, label] = s.split(':');
+    return { file, label: label || '' };
+  }
+  return { name: s };
+}
+
+// Split a comment into text/link tokens. _underscored_ phrases become
+// {link:true, text} (in order, to pair with the node's YG[] entries).
+export function tokenizeComment(text) {
+  const tokens = [];
+  let last = 0;
+  const re = /_([^_\r\n]+)_/g;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) tokens.push({ text: text.slice(last, m.index) });
+    tokens.push({ link: true, text: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) tokens.push({ text: text.slice(last) });
+  return tokens;
+}

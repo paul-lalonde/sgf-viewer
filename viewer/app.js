@@ -7,7 +7,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
-import { parseWgf, recordTitle } from './wgf.js';
+import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment } from './wgf.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -114,6 +114,8 @@ async function loadFile(name) {
   }
   state.file = name;
   state.records = records;
+  state.isWgf = isWgf;
+  state.wgfNames = isWgf ? buildNameIndex(records) : null;
   clearTimeout(state.replyTimer);
   feedback('', '');
   $('savename').value = name.replace(/(\.edit)?\.[sw]gf$/i, '') + '.edit.sgf';
@@ -217,7 +219,8 @@ function refresh() {
     const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
     history.replaceState(null, '', hash);
   }
-  renderComment($('comment'), game.comment(), pos.marks);
+  if (state.isWgf) renderWgfComment($('comment'), game.current);
+  else renderComment($('comment'), game.comment(), pos.marks);
   placeComment();
   const box = $('commentbox');
   if (document.activeElement !== box) box.value = game.comment();
@@ -293,6 +296,71 @@ function placeComment() {
   document.body.classList.toggle('sidecomment', long);
   if (long) $('commentbody').appendChild(el);
 }
+
+// Render a Dojo comment with _underscored_ phrases as clickable links.
+// Each distinct link text pairs with a YG[] entry in order of first
+// appearance (a repeated phrase reuses the same target).
+function renderWgfComment(el, node) {
+  el.textContent = '';
+  const order = new Map(); // link text -> YG index
+  for (const tok of tokenizeComment((node.props.C || []).join('\n'))) {
+    if (tok.link) {
+      if (!order.has(tok.text)) order.set(tok.text, order.size);
+      const a = document.createElement('span');
+      a.className = 'wlink';
+      a.textContent = tok.text;
+      a.dataset.i = order.get(tok.text);
+      el.append(a);
+    } else {
+      el.append(tok.text);
+    }
+  }
+}
+
+// Follow the k-th link in the current node's comment, via its YG[]
+// targets (positional), with YF as the fallback / "Next".
+function followWgfLink(k, text) {
+  const node = state.game.current;
+  const yg = node.props.YG || [];
+  const yf = (node.props.YF || [])[0];
+  let target = null;
+  if (text.trim().toLowerCase() === 'next' && yf) target = { name: yf };
+  else if (yg[k]) target = parseLinkTarget(yg[k]);
+  else if (yf) target = { name: yf };
+  if (target) navigateWgf(target);
+}
+
+function navigateWgf(target) {
+  if (target.name && state.wgfNames.has(target.name)) {
+    const { recordIndex, node } = state.wgfNames.get(target.name);
+    if (recordIndex !== state.recordIndex) loadRecord(recordIndex);
+    state.game.goTo(node);
+    refresh();
+  } else if (target.file) {
+    loadCrossFileLink(target);
+  } else {
+    feedback('offpath', `link target not found: ${target.name || target.file}`);
+  }
+}
+
+// A cross-file link (":B:other.wgf:.label"): load that file, then jump
+// to the labelled node if present.
+async function loadCrossFileLink(target) {
+  await loadFile(target.file);
+  if (target.label && state.wgfNames && state.wgfNames.has(target.label)) {
+    const { recordIndex, node } = state.wgfNames.get(target.label);
+    if (recordIndex !== state.recordIndex) loadRecord(recordIndex);
+    state.game.goTo(node);
+    refresh();
+  }
+}
+
+// the comment element moves between the board column and the notes panel,
+// so the listener lives on the element itself
+$('comment').addEventListener('click', (e) => {
+  const a = e.target.closest('.wlink');
+  if (a && state.isWgf && state.game) followWgfLink(+a.dataset.i, a.textContent);
+});
 
 function showError(msg) {
   $('comment').textContent = `⚠ ${msg}`;
@@ -1052,6 +1120,7 @@ async function restoreSession() {
   state.file = s.file ?? null;
   state.autosaveName = s.autosaveName ?? null;
   state.records = null;
+  state.isWgf = false;
   renderRecordBar();
   setDirty(true);
   $('savename').value = s.name || 'untitled.sgf';
@@ -1129,6 +1198,7 @@ function startFreshGame(size) {
   state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
   state.file = null;
   state.records = null;
+  state.isWgf = false;
   renderRecordBar();
   state.autosaveName = null; // this game gets its own autosave file
   setDirty(false);
