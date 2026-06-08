@@ -1,9 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- 2x2 goban: black stone one corner, white the other -->
+  <!-- 3x3 goban: stones in every corner + a black stone at b3 -->
   <rect width="32" height="32" rx="4" fill="#fff"/>
-  <g stroke="#000" stroke-width="2">
-    <path d="M9 9H23M9 23H23M9 9V23M23 9V23"/>
+  <g stroke="#000" stroke-width="1.6" fill="none">
+    <path d="M7 7H25M7 16H25M7 25H25"/>
+    <path d="M7 7V25M16 7V25M25 7V25"/>
   </g>
-  <circle cx="9" cy="9" r="6.5" fill="#000"/>
-  <circle cx="23" cy="23" r="6" fill="#fff" stroke="#000" stroke-width="2"/>
+  <g stroke="#000" stroke-width="1.5">
+    <!-- corners: a1, c3 black; a3, c1 white -->
+    <circle cx="7"  cy="25" r="4.2" fill="#000"/>
+    <circle cx="25" cy="7"  r="4.2" fill="#000"/>
+    <circle cx="7"  cy="7"  r="4"   fill="#fff"/>
+    <circle cx="25" cy="25" r="4"   fill="#fff"/>
+    <!-- b3: black -->
+    <circle cx="16" cy="7"  r="4.2" fill="#000"/>
+  </g>
 </svg>
