@@ -725,7 +725,11 @@ function renderJosekiNav() {
   const where = path.length
     ? `${path.length} move${path.length > 1 ? 's' : ''} into the joseki — board shows the line (numbered)`
     : `matched ${state.josekiMatched} stones`;
-  const comment = node.props.C ? `<div class="jcomment">${escapeHtml(node.props.C.join('\n'))}</div>` : '';
+  // the dictionary describes the Black-first convention; if you took the
+  // corner as White the colours are swapped, so swap the words to match
+  let commentText = node.props.C ? node.props.C.join('\n') : '';
+  commentText = localizeComment(commentText, T);
+  const comment = commentText ? `<div class="jcomment">${escapeHtml(commentText)}</div>` : '';
   const choiceChips = choices.length
     ? '<div class="jcont">' +
       choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter}·${coord(ch.x, ch.y, size)}${ch.setup ? ' +stone' : ''}</span>`).join('') +
@@ -781,6 +785,45 @@ function childLetter(parent, child, size) {
     if (i >= 0 && v.slice(0, i) === pt) return v.slice(i + 1);
   }
   return null;
+}
+
+// Rewrite a joseki comment so its colour and direction words match how
+// the joseki actually sits on your board. The dictionary is written for
+// the top-right corner with Black first; under a colour-swapped or
+// rotated/reflected match those words must follow, or the description
+// contradicts the stones. Word boundaries keep "copyright" etc. safe.
+function localizeComment(text, T) {
+  if (T.swap) {
+    text = text.replace(/\b(black|white)\b/gi, (m) =>
+      matchCase(m, m[0].toLowerCase() === 'b' ? 'white' : 'black'));
+  }
+  // direction permutation induced by the geometry (corner + diagonal)
+  const dir = {
+    top: boardDir(T, 0, -1),
+    bottom: boardDir(T, 0, 1),
+    left: boardDir(T, 1, 0),
+    right: boardDir(T, -1, 0),
+  };
+  if (dir.top === 'top' && dir.left === 'left') return text; // identity geometry
+  return text.replace(/\b(upper|lower|top|bottom|left|right)\b/gi, (m) => {
+    const lw = m.toLowerCase();
+    const key = lw === 'upper' ? 'top' : lw === 'lower' ? 'bottom' : lw;
+    return matchCase(m, dir[key]);
+  });
+}
+
+// The board direction a canonical (dict-frame) step maps to under T.
+function boardDir(T, du, dv) {
+  const [ax, ay] = T.toBoard(5, 5);
+  const [bx, by] = T.toBoard(5 + du, 5 + dv);
+  if (bx !== ax) return bx > ax ? 'right' : 'left';
+  return by > ay ? 'bottom' : 'top'; // board y grows downward
+}
+
+function matchCase(orig, repl) {
+  if (orig === orig.toUpperCase()) return repl.toUpperCase();
+  if (orig[0] === orig[0].toUpperCase()) return repl[0].toUpperCase() + repl.slice(1);
+  return repl;
 }
 
 function setJosekiBody(html) {

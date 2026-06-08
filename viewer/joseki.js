@@ -120,7 +120,7 @@ function cornerStones(grid, size) {
 
 // One of the 16 symmetries: maps your board (x,y,colour) into the
 // canonical frame, and back. corner ∈ 0..3, diag/swap booleans.
-function makeTransform(corner, diag, swap, size) {
+export function makeTransform(corner, diag, swap, size) {
   const N = size - 1;
   const toCanon = (x, y) => {
     let u = corner & 1 ? x : N - x; // bit0: keep x (left corners) vs flip
