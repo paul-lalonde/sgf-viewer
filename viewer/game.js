@@ -33,7 +33,9 @@ export class Game {
   // (0 = none / setup stone), for optional on-stone numbering.
   position() {
     const grid = emptyGrid(this.size);
-    const nums = emptyGrid(this.size); // 0 = no number
+    const nums = emptyGrid(this.size); // currently-shown number (0 = none)
+    const lastPlay = emptyGrid(this.size); // last move ever played here (kept through captures)
+    const movesAt = []; // {lost, shown}: move `lost` was at the point now showing `shown`
     let lastMove = null;
     let moveNumber = 0;
     const captures = { [BLACK]: 0, [WHITE]: 0 };
@@ -52,13 +54,20 @@ export class Game {
         continue;
       }
       captures[mv.color] += playMove(grid, mv, nums);
-      if (grid[mv.y][mv.x] === mv.color) nums[mv.y][mv.x] = moveNumber; // not a suicide
+      if (grid[mv.y][mv.x] === mv.color) {
+        // a point replayed after a capture (ko, recapture) can't show both
+        // numbers — record "earlier move at this now-numbered point"
+        if (lastPlay[mv.y][mv.x]) movesAt.push({ lost: lastPlay[mv.y][mv.x], shown: moveNumber });
+        nums[mv.y][mv.x] = moveNumber;
+        lastPlay[mv.y][mv.x] = moveNumber;
+      }
       lastMove = mv;
     }
     return {
       grid, lastMove, moveNumber, captures,
       marks: marksOf(this.current, this.size),
       moveNumbers: nums,
+      movesAt,
     };
   }
 

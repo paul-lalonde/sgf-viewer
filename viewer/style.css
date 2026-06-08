@@ -169,6 +169,15 @@ main {
   padding: 2px 0 6px;
 }
 
+#movesat {
+  font-size: 12px;
+  color: #666;
+  max-width: min(76vh, 100%, 760px);
+  text-align: center;
+}
+
+#movesat:empty { display: none; }
+
 #feedback {
   min-height: 20px;
   font-size: 15px;

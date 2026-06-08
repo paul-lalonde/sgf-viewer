@@ -171,6 +171,11 @@ function refresh() {
   $('movecount').textContent =
     `move ${pos.moveNumber} / ${game.lineLength()}` +
     ` · captures ● ${pos.captures[BLACK]} ○ ${pos.captures[WHITE]}`;
+  // "X at Y" notes for points replayed after a capture (only meaningful
+  // when move numbers are shown)
+  $('movesat').textContent = board.showNumbers && pos.movesAt.length
+    ? pos.movesAt.map((n) => `${n.lost} at ${n.shown}`).join(' · ')
+    : '';
   persist();
 }
 
@@ -609,6 +614,7 @@ function setNumbers(on) {
   board.setShowNumbers(on);
   $('numbersbtn').classList.toggle('active', on);
   localStorage.setItem('sgf-numbers', on ? '1' : '');
+  if (state.game) refresh(); // sync the "X at Y" notes line
 }
 $('numbersbtn').addEventListener('click', () => setNumbers(!board.showNumbers));
 
