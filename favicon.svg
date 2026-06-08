@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 2x2 goban: black stone one corner, white the other -->
+  <rect width="32" height="32" rx="4" fill="#fff"/>
+  <g stroke="#000" stroke-width="2">
+    <path d="M9 9H23M9 23H23M9 9V23M23 9V23"/>
+  </g>
+  <circle cx="9" cy="9" r="6.5" fill="#000"/>
+  <circle cx="23" cy="23" r="6" fill="#fff" stroke="#000" stroke-width="2"/>
+</svg>
