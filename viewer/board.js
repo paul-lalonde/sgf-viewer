@@ -18,6 +18,7 @@ export class Board {
     this.view = null; // {x0,y0,x1,y1} crop (SGF VW), or null = whole board
     this.showNumbers = false; // draw move numbers on stones
     this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
+    this.josekiMarks = null; // [{x,y,type,text}] marks from the joseki node
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -62,6 +63,12 @@ export class Board {
   // Joseki continuation overlay: [{x,y,color,label}], or null to clear.
   setJosekiGhosts(list) {
     this.josekiGhosts = list;
+    this.draw();
+  }
+
+  // Marks from the matched joseki node (triangle, etc.), in dict accent.
+  setJosekiMarks(list) {
+    this.josekiMarks = list;
     this.draw();
   }
 
@@ -123,6 +130,7 @@ export class Board {
     this._drawMarks(ctx, m);
     this._drawLastMove(ctx, m);
     this._drawCandidates(ctx, m);
+    this._drawJosekiMarks(ctx, m);
     this._drawJosekiGhosts(ctx, m);
     this._drawGhost(ctx, m);
     ctx.restore();
@@ -282,6 +290,16 @@ export class Board {
       ctx.textBaseline = 'middle';
       ctx.fillText(c.text, cx, cy);
       ctx.restore();
+    }
+  }
+
+  // Marks declared on the matched joseki node (e.g. the triangled
+  // position the comment refers to), drawn in the dictionary accent.
+  _drawJosekiMarks(ctx, m) {
+    if (!this.josekiMarks) return;
+    for (const mark of this.josekiMarks) {
+      if (!this._visible(m, mark.x, mark.y)) continue;
+      drawMark(ctx, mark, this._sx(m, mark.x), this._sy(m, mark.y), m.cell, '#b8860b');
     }
   }
 

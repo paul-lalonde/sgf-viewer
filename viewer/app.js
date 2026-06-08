@@ -2,7 +2,10 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict, gtpPoint, moveOf } from './game.js';
+import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game.js';
+
+// joseki node marks → board overlay types
+const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
@@ -184,8 +187,12 @@ function refresh() {
   $('movesat').textContent = board.showNumbers && pos.movesAt.length
     ? pos.movesAt.map((n) => `${n.lost} at ${n.shown}`).join(' · ')
     : '';
-  if (state.joseki) updateJoseki(pos);
-  else if (board.josekiGhosts) board.setJosekiGhosts(null);
+  if (state.joseki) {
+    updateJoseki(pos);
+  } else if (board.josekiGhosts || board.josekiMarks) {
+    board.setJosekiGhosts(null);
+    board.setJosekiMarks(null);
+  }
   persist();
 }
 
@@ -651,6 +658,7 @@ function updateJoseki(pos) {
   state.josekiResults = results;
   if (!results.length) {
     board.setJosekiGhosts(null);
+    board.setJosekiMarks(null);
     state.josekiBase = null;
     setJosekiBody('<div class="jmsg">no joseki match in any corner</div>');
     return;
@@ -680,27 +688,38 @@ function anchorJoseki(result) {
 function renderJosekiNav() {
   const size = state.game.size;
   const { josekiT: T, josekiBase: base, josekiNode: node } = state;
-  const toBoard = (mv) => {
-    const [x, y] = T.toBoard(size - 1 - mv.x, mv.y);
-    return { x, y, color: T.col(mv.color) };
-  };
+  const toXY = (sx, sy) => T.toBoard(size - 1 - sx, sy);
+  // Colour the line by alternation from whose turn it is on YOUR board —
+  // not the dictionary's colours — so a joseki you took with the corner
+  // as White shows its moves in your colours (the dict has Black first).
+  const toPlay = state.game.nextColor();
+  const other = toPlay === BLACK ? WHITE : BLACK;
+  const altColor = (moveDepth) => (moveDepth % 2 === 0 ? toPlay : other);
+
   const path = []; // base (exclusive) → node
   for (let n = node; n && n !== base; n = n.parent) path.push(n);
   path.reverse();
   const ghosts = [];
+  let moveDepth = 0; // moves walked so far, for alternation (setup stones don't count)
   path.forEach((n, i) => {
-    const mv = moveOf(n, size);
-    if (mv && !mv.pass) ghosts.push({ ...toBoard(mv), label: String(i + 1) });
+    const st = childStone(n, size);
+    if (!st) return;
+    const [x, y] = toXY(st.x, st.y);
+    const color = st.setup ? T.col(st.color) : altColor(moveDepth++);
+    ghosts.push({ x, y, color, label: String(i + 1) });
   });
+  const choiceColor = altColor(moveDepth); // the immediate next move's colour
   const choices = [];
   node.children.forEach((c, i) => {
-    const mv = moveOf(c, size);
-    if (!mv || mv.pass) return;
+    const st = childStone(c, size);
+    if (!st) return;
+    const [x, y] = toXY(st.x, st.y);
     const letter = childLetter(node, c, size) || String.fromCharCode(97 + i);
-    choices.push({ child: c, letter, ...toBoard(mv) });
+    choices.push({ child: c, letter, x, y, color: st.setup ? T.col(st.color) : choiceColor, setup: st.setup });
   });
   choices.forEach((ch) => ghosts.push({ x: ch.x, y: ch.y, color: ch.color, label: ch.letter }));
   board.setJosekiGhosts(ghosts.length ? ghosts : null);
+  board.setJosekiMarks(josekiMarks(node, T, size));
   state.josekiChoices = choices;
 
   const where = path.length
@@ -709,7 +728,7 @@ function renderJosekiNav() {
   const comment = node.props.C ? `<div class="jcomment">${escapeHtml(node.props.C.join('\n'))}</div>` : '';
   const choiceChips = choices.length
     ? '<div class="jcont">' +
-      choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter}·${coord(ch.x, ch.y, size)}</span>`).join('') +
+      choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter}·${coord(ch.x, ch.y, size)}${ch.setup ? ' +stone' : ''}</span>`).join('') +
       '</div>'
     : '<div class="jmsg">(end of this joseki line)</div>';
   const nav = (node !== base ? '<span class="jmove jback">↑ back</span>' : '') +
@@ -727,9 +746,35 @@ function renderJosekiNav() {
   );
 }
 
+// A child's representative stone — a move, or a single setup stone (the
+// "additional stone on the triangled position" variations). {x,y,color,setup}.
+function childStone(node, size) {
+  const mv = moveOf(node, size);
+  if (mv) return mv.pass ? null : { x: mv.x, y: mv.y, color: mv.color, setup: false };
+  const s = singleSetup(node, size);
+  return s ? { x: s.x, y: s.y, color: s.color, setup: true } : null;
+}
+
+// The joseki node's own marks (triangle etc.) mapped onto your board.
+function josekiMarks(node, T, size) {
+  const marks = [];
+  for (const [prop, type] of JOSEKI_MARKS) {
+    for (const v of node.props[prop] || []) {
+      if (v.length < 2 || v.includes(':')) continue; // single points only
+      const px = v.charCodeAt(0) - 97;
+      const py = v.charCodeAt(1) - 97;
+      if (px < 0 || py < 0 || px >= size || py >= size) continue;
+      const [x, y] = T.toBoard(size - 1 - px, py);
+      marks.push({ x, y, type });
+    }
+  }
+  return marks.length ? marks : null;
+}
+
 function childLetter(parent, child, size) {
-  const mv = moveOf(child, size);
-  if (!mv || mv.pass) return null;
+  const st = childStone(child, size);
+  if (!st) return null;
+  const mv = { x: st.x, y: st.y };
   const pt = String.fromCharCode(97 + mv.x, 97 + mv.y); // child's move as a dict SGF point
   for (const v of parent.props.LB || []) {
     const i = v.indexOf(':');
