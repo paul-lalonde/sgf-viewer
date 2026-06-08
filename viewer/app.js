@@ -170,6 +170,7 @@ function refresh() {
   $('movecount').textContent =
     `move ${pos.moveNumber} / ${game.lineLength()}` +
     ` · captures ● ${pos.captures[BLACK]} ○ ${pos.captures[WHITE]}`;
+  persist();
 }
 
 function setInfo() {
@@ -582,6 +583,92 @@ function setDirty(dirty) {
   $('save').classList.toggle('dirty', dirty);
 }
 
+// ---------- crash recovery: persist unsaved work to localStorage -----------
+// Only dirty (unsaved) games are kept; clean loaded files restore via the
+// URL hash. Restored on reload so an accidental refresh doesn't lose a new
+// game or unsaved edits.
+
+const SESSION_KEY = 'sgf-session';
+let persistTimer = null;
+
+function persist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(saveSession, 400);
+}
+
+function saveSession() {
+  if (!state.game || !state.dirty) {
+    localStorage.removeItem(SESSION_KEY);
+    return;
+  }
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      sgf: state.game.serialize(),
+      path: nodePath(state.game), // child indices root → current node
+      dir: state.dir,
+      file: state.file, // null for a never-saved game
+      name: $('savename').value,
+      title: document.title,
+    }));
+  } catch {
+    /* quota or serialization failure — recovery is best-effort */
+  }
+}
+
+function clearSession() {
+  clearTimeout(persistTimer);
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function nodePath(game) {
+  const path = [];
+  for (let n = game.current; n.parent; n = n.parent) {
+    path.push(n.parent.children.indexOf(n));
+  }
+  return path.reverse();
+}
+
+function applyPath(game, path) {
+  game.toStart();
+  for (const i of path) {
+    const child = game.current.children[i];
+    if (!child) break;
+    game.goTo(child);
+  }
+}
+
+// Rebuild a dirty game saved before a reload. Returns true if restored.
+async function restoreSession() {
+  let s;
+  try {
+    s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  } catch {
+    s = null;
+  }
+  if (!s?.sgf) return false;
+  let game;
+  try {
+    game = new Game(s.sgf);
+  } catch {
+    clearSession();
+    return false;
+  }
+  await loadDir(s.dir || ''); // populate the file browser context
+  state.game = game;
+  state.file = s.file ?? null;
+  setDirty(true);
+  $('savename').value = s.name || 'untitled.sgf';
+  document.title = s.title || 'restored — SGF viewer';
+  board.setSize(game.size);
+  tree.setGame(game);
+  applyPath(game, s.path || []);
+  setInfo();
+  markCurrentFile();
+  refresh();
+  feedback('', '↩ restored your unsaved game');
+  return true;
+}
+
 for (const btn of document.querySelectorAll('#tools .tool[data-tool]')) {
   btn.addEventListener('click', () => {
     state.tool = btn.dataset.tool;
@@ -622,6 +709,7 @@ async function saveFile() {
     return;
   }
   setDirty(false);
+  clearSession(); // it's on disk now
   state.file = name; // further saves and n/p navigate relative to the copy
   $('savestatus').textContent = `saved ${name}`;
   await loadDir(state.dir); // pick up the new file in the browser
@@ -644,6 +732,7 @@ function startFreshGame(size) {
   state.game = new Game(`(;GM[1]FF[4]SZ[${size}]CA[UTF-8]DT[${today}])`);
   state.file = null;
   setDirty(false);
+  clearSession(); // empty game isn't worth restoring until a move is played
   $('savename').value = 'untitled.sgf';
   $('savestatus').textContent = '';
   document.title = 'new game — SGF viewer';
@@ -719,6 +808,8 @@ document.addEventListener('keydown', (e) => {
 // ---------- startup -------------------------------------------------------
 
 (async function init() {
+  // unsaved work takes precedence over the hash: restore it if present
+  if (await restoreSession()) return;
   const target = decodeURIComponent(location.hash.slice(1));
   const [path, at] = target.split('@');
   await loadDir(path ? parentOf(path) : '');
