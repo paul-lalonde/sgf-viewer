@@ -232,11 +232,10 @@ export class Board {
   }
 
   _drawStars(ctx, m) {
+    if (this._splitAt()) return; // sub-board layouts: star points just distract
     ctx.fillStyle = '#000';
-    const sp = this._splitAt();
     for (const [x, y] of starPoints(this.size)) {
       if (!this._visible(m, x, y)) continue;
-      if (sp && ((sp.col && x === sp.c) || (sp.row && y === sp.c))) continue;
       ctx.beginPath();
       ctx.arc(this._sx(m, x), this._sy(m, y), m.cell * 0.09, 0, Math.PI * 2);
       ctx.fill();
