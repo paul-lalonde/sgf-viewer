@@ -89,8 +89,19 @@ main {
 
 #info {
   font-size: 14px;
-  padding: 2px 0 8px;
+  padding: 2px 0 4px;
   color: #333;
+  text-align: center;
+}
+
+#gamecomment {
+  font-size: 13px;
+  font-style: italic;
+  color: #555;
+  padding: 0 0 6px;
+  max-width: min(76vh, 100%, 760px);
+  white-space: pre-wrap;
+  text-align: center;
 }
 
 #boardwrap {

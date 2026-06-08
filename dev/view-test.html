@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!-- Dev harness: render a VW-cropped board (no corpus file uses a real
+     crop, so this exercises setView synthetically) — check grid, labels,
+     stones, and click mapping all respect the crop. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VW crop test</title>
+  <style> #board { width: 420px; aspect-ratio: 1; display: block; } </style>
+</head>
+<body>
+  <p id="msg">cropped to the top-right (columns P–T, rows 14–19)</p>
+  <canvas id="board"></canvas>
+  <script type="module">
+    import { Board } from '/viewer/board.js';
+    import { Game } from '/viewer/game.js';
+    // SGF point letters are a–s for a 19 board ('t' is off-board!).
+    // VW[oa:sf] = x 14–18, y 0–5 → display columns P–T, rows 14–19.
+    const g = new Game('(;SZ[19]VW[oa:sf];AB[pd][qf][od]AW[qc][rd][pe];B[pf])');
+    g.toEnd(); // setup stones + the move live past the root
+    const board = new Board(document.getElementById('board'), {
+      size: 19,
+      onPointClick: (x, y) => { document.getElementById('msg').textContent = `clicked ${x},${y}`; },
+    });
+    board.setSize(19);
+    board.setPosition(g.position());
+    board.setView(g.viewRect());
+  </script>
+</body>
+</html>

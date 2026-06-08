@@ -145,6 +145,7 @@ function refresh() {
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
+  board.setView(game.viewRect()); // honor SGF VW board-crop
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
@@ -177,15 +178,27 @@ function setInfo() {
   const p = (name) => state.game.rootProp(name);
   const side = (name, rank) =>
     [p(name), p(rank) && `(${p(rank)})`].filter(Boolean).join(' ');
+  // event · round, and time · overtime, read as single units when present
+  const event = [p('EV'), p('RO') && `round ${p('RO')}`].filter(Boolean).join(' ');
+  const time = [p('TM'), p('OT')].filter(Boolean).join(' + ');
   const bits = [
     `${side('PB', 'BR') || 'Black'} vs ${side('PW', 'WR') || 'White'}`,
     p('HA') > 1 && `${p('HA')} stones`,
     p('KM') && `komi ${p('KM')}`,
     p('RE'),
+    event,
     p('DT'),
-    p('EV'),
+    p('PC'), // place
+    p('RU') && `${p('RU')} rules`,
+    time && `time ${time}`,
+    p('GN'), // game name
+    p('AN') && `annotated by ${p('AN')}`,
+    p('SO') && `source: ${p('SO')}`,
+    p('CP'), // copyright
   ].filter(Boolean);
   $('info').textContent = bits.join(' · ');
+  // GC = a comment on the whole game, distinct from per-node comments
+  $('gamecomment').textContent = (state.game.root.props.GC || []).join('\n');
 }
 
 function showError(msg) {

@@ -15,6 +15,7 @@ export class Board {
     this.hover = null;
     this.ownership = null; // size*size of [-1,1], +White/-Black, or null
     this.candidates = null; // [{x, y, text, rank}] engine suggestions, or null
+    this.view = null; // {x0,y0,x1,y1} crop (SGF VW), or null = whole board
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -49,6 +50,14 @@ export class Board {
     this.draw();
   }
 
+  // Crop the board to a sub-rectangle (SGF VW), or null for the whole board.
+  setView(rect) {
+    const same = JSON.stringify(rect) === JSON.stringify(this.view);
+    if (same) return;
+    this.view = rect;
+    this.draw();
+  }
+
   // Show a stone of `color` under the pointer (null disables).
   setGhost(color) {
     if (this.ghostColor === color) return;
@@ -60,17 +69,28 @@ export class Board {
     this.draw();
   }
 
+  // Layout for the visible region (whole board, or the VW crop). ox/oy
+  // are the screen coords of the top-left visible intersection (x0,y0).
   _metrics() {
     const px = this.canvas.clientWidth;
-    const cell = px / (this.size + 1.7);
-    return { px, cell, origin: cell * 1.35 };
+    const v = this.view || { x0: 0, y0: 0, x1: this.size - 1, y1: this.size - 1 };
+    const cols = v.x1 - v.x0 + 1;
+    const rows = v.y1 - v.y0 + 1;
+    const cell = px / (Math.max(cols, rows) + 1.7); // +1.7 leaves a label margin
+    const ox = (px - (cols - 1) * cell) / 2;
+    const oy = (px - (rows - 1) * cell) / 2;
+    return { px, cell, ox, oy, x0: v.x0, y0: v.y0, x1: v.x1, y1: v.y1 };
   }
 
+  _sx(m, x) { return m.ox + (x - m.x0) * m.cell; }
+  _sy(m, y) { return m.oy + (y - m.y0) * m.cell; }
+  _visible(m, x, y) { return x >= m.x0 && x <= m.x1 && y >= m.y0 && y <= m.y1; }
+
   draw() {
-    const { px, cell, origin } = this._metrics();
-    if (!px) return;
+    const m = this._metrics();
+    if (!m.px) return;
     const dpr = window.devicePixelRatio || 1;
-    const want = Math.round(px * dpr);
+    const want = Math.round(m.px * dpr);
     if (this.canvas.width !== want) {
       this.canvas.width = want;
       this.canvas.height = want;
@@ -79,69 +99,78 @@ export class Board {
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, px, px);
-    this._drawGrid(ctx, cell, origin);
-    this._drawLabels(ctx, cell, origin);
-    this._drawStars(ctx, cell, origin);
-    this._drawStones(ctx, cell, origin);
-    this._drawOwnership(ctx, cell, origin);
-    this._drawMarks(ctx, cell, origin);
-    this._drawLastMove(ctx, cell, origin);
-    this._drawCandidates(ctx, cell, origin);
-    this._drawGhost(ctx, cell, origin);
+    ctx.fillRect(0, 0, m.px, m.px);
+    this._drawGrid(ctx, m);
+    this._drawLabels(ctx, m);
+    this._drawStars(ctx, m);
+    this._drawStones(ctx, m);
+    this._drawOwnership(ctx, m);
+    this._drawMarks(ctx, m);
+    this._drawLastMove(ctx, m);
+    this._drawCandidates(ctx, m);
+    this._drawGhost(ctx, m);
     ctx.restore();
   }
 
-  _drawGrid(ctx, cell, origin) {
-    const far = origin + (this.size - 1) * cell;
+  _drawGrid(ctx, m) {
+    const left = this._sx(m, m.x0), right = this._sx(m, m.x1);
+    const top = this._sy(m, m.y0), bottom = this._sy(m, m.y1);
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let i = 0; i < this.size; i++) {
-      const p = origin + i * cell;
-      ctx.moveTo(origin, p);
-      ctx.lineTo(far, p);
-      ctx.moveTo(p, origin);
-      ctx.lineTo(p, far);
+    for (let y = m.y0; y <= m.y1; y++) {
+      const py = this._sy(m, y);
+      ctx.moveTo(left, py);
+      ctx.lineTo(right, py);
+    }
+    for (let x = m.x0; x <= m.x1; x++) {
+      const px = this._sx(m, x);
+      ctx.moveTo(px, top);
+      ctx.lineTo(px, bottom);
     }
     ctx.stroke();
   }
 
-  _drawLabels(ctx, cell, origin) {
-    const far = origin + (this.size - 1) * cell;
+  _drawLabels(ctx, m) {
+    const cell = m.cell;
+    const left = this._sx(m, m.x0), right = this._sx(m, m.x1);
+    const top = this._sy(m, m.y0), bottom = this._sy(m, m.y1);
     ctx.fillStyle = '#444';
     ctx.font = `${(cell * 0.42).toFixed(1)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (let i = 0; i < this.size; i++) {
-      const p = origin + i * cell;
-      const col = COLS[i];
-      const row = String(this.size - i);
-      ctx.fillText(col, p, origin - cell * 0.9);
-      ctx.fillText(col, p, far + cell * 0.9);
-      ctx.fillText(row, origin - cell * 0.9, p);
-      ctx.fillText(row, far + cell * 0.9, p);
+    for (let x = m.x0; x <= m.x1; x++) {
+      const px = this._sx(m, x);
+      ctx.fillText(COLS[x], px, top - cell * 0.9);
+      ctx.fillText(COLS[x], px, bottom + cell * 0.9);
+    }
+    for (let y = m.y0; y <= m.y1; y++) {
+      const py = this._sy(m, y);
+      const row = String(this.size - y);
+      ctx.fillText(row, left - cell * 0.9, py);
+      ctx.fillText(row, right + cell * 0.9, py);
     }
   }
 
-  _drawStars(ctx, cell, origin) {
+  _drawStars(ctx, m) {
     ctx.fillStyle = '#000';
     for (const [x, y] of starPoints(this.size)) {
+      if (!this._visible(m, x, y)) continue;
       ctx.beginPath();
-      ctx.arc(origin + x * cell, origin + y * cell, cell * 0.09, 0, Math.PI * 2);
+      ctx.arc(this._sx(m, x), this._sy(m, y), m.cell * 0.09, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  _drawStones(ctx, cell, origin) {
+  _drawStones(ctx, m) {
     const { grid } = this.position;
-    const r = cell * 0.47;
-    for (let y = 0; y < this.size; y++) {
-      for (let x = 0; x < this.size; x++) {
+    const r = m.cell * 0.47;
+    for (let y = m.y0; y <= m.y1; y++) {
+      for (let x = m.x0; x <= m.x1; x++) {
         const stone = grid[y][x];
         if (!stone) continue;
         ctx.beginPath();
-        ctx.arc(origin + x * cell, origin + y * cell, stone === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
+        ctx.arc(this._sx(m, x), this._sy(m, y), stone === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
         if (stone === BLACK) {
           ctx.fillStyle = '#000';
           ctx.fill();
@@ -158,15 +187,14 @@ export class Board {
 
   // Small square at each clearly-owned point, opacity tracking
   // confidence; black or white by who owns it.
-  _drawOwnership(ctx, cell, origin) {
+  _drawOwnership(ctx, m) {
     if (!this.ownership) return;
-    const side = cell * 0.38;
-    for (let y = 0; y < this.size; y++) {
-      for (let x = 0; x < this.size; x++) {
+    const side = m.cell * 0.38;
+    for (let y = m.y0; y <= m.y1; y++) {
+      for (let x = m.x0; x <= m.x1; x++) {
         const v = this.ownership[y * this.size + x];
         if (Math.abs(v) < 0.12) continue; // skip neutral / dame
-        const cx = origin + x * cell;
-        const cy = origin + y * cell;
+        const cx = this._sx(m, x), cy = this._sy(m, y);
         ctx.save();
         ctx.globalAlpha = Math.min(0.85, Math.abs(v));
         ctx.fillStyle = v < 0 ? '#000' : '#fff';
@@ -181,39 +209,39 @@ export class Board {
     }
   }
 
-  _drawMarks(ctx, cell, origin) {
+  _drawMarks(ctx, m) {
     const { grid, marks } = this.position;
     for (const mark of marks || []) {
-      const cx = origin + mark.x * cell;
-      const cy = origin + mark.y * cell;
+      if (!this._visible(m, mark.x, mark.y)) continue;
+      const cx = this._sx(m, mark.x), cy = this._sy(m, mark.y);
       const stone = grid[mark.y][mark.x];
       // marks on empty points get a white patch so grid lines don't cross them
       if (stone === EMPTY && !mark.type.startsWith('territory')) {
         ctx.fillStyle = '#fff';
-        ctx.fillRect(cx - cell * 0.4, cy - cell * 0.4, cell * 0.8, cell * 0.8);
+        ctx.fillRect(cx - m.cell * 0.4, cy - m.cell * 0.4, m.cell * 0.8, m.cell * 0.8);
       }
-      drawMark(ctx, mark, cx, cy, cell, stone === BLACK ? '#fff' : '#000');
+      drawMark(ctx, mark, cx, cy, m.cell, stone === BLACK ? '#fff' : '#000');
     }
   }
 
-  _drawLastMove(ctx, cell, origin) {
+  _drawLastMove(ctx, m) {
     const { lastMove } = this.position;
-    if (!lastMove) return;
+    if (!lastMove || !this._visible(m, lastMove.x, lastMove.y)) return;
     ctx.beginPath();
-    ctx.arc(origin + lastMove.x * cell, origin + lastMove.y * cell, cell * 0.26, 0, Math.PI * 2);
+    ctx.arc(this._sx(m, lastMove.x), this._sy(m, lastMove.y), m.cell * 0.26, 0, Math.PI * 2);
     ctx.strokeStyle = lastMove.color === BLACK ? '#fff' : '#000';
     ctx.lineWidth = 1.5;
     ctx.stroke();
   }
 
   // Colored disc + delta label at each engine candidate, by rank.
-  _drawCandidates(ctx, cell, origin) {
+  _drawCandidates(ctx, m) {
     if (!this.candidates) return;
     const colors = ['#2e7d32', '#f9a825', '#e65100']; // best → worse
-    const r = cell * 0.46;
+    const r = m.cell * 0.46;
     for (const c of this.candidates) {
-      const cx = origin + c.x * cell;
-      const cy = origin + c.y * cell;
+      if (!this._visible(m, c.x, c.y)) continue;
+      const cx = this._sx(m, c.x), cy = this._sy(m, c.y);
       ctx.save();
       ctx.globalAlpha = 0.85;
       ctx.fillStyle = colors[c.rank] || '#777';
@@ -222,7 +250,7 @@ export class Board {
       ctx.fill();
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${(cell * 0.32).toFixed(1)}px system-ui, sans-serif`;
+      ctx.font = `bold ${(m.cell * 0.32).toFixed(1)}px system-ui, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(c.text, cx, cy);
@@ -230,15 +258,15 @@ export class Board {
     }
   }
 
-  _drawGhost(ctx, cell, origin) {
+  _drawGhost(ctx, m) {
     if (!this.ghostColor || !this.hover) return;
     const { x, y } = this.hover;
-    if (this.position.grid[y][x] !== EMPTY) return;
-    const r = cell * 0.47;
+    if (!this._visible(m, x, y) || this.position.grid[y][x] !== EMPTY) return;
+    const r = m.cell * 0.47;
     ctx.save();
     ctx.globalAlpha = 0.55;
     ctx.beginPath();
-    ctx.arc(origin + x * cell, origin + y * cell, this.ghostColor === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
+    ctx.arc(this._sx(m, x), this._sy(m, y), this.ghostColor === WHITE ? r - 0.5 : r, 0, Math.PI * 2);
     if (this.ghostColor === BLACK) {
       ctx.fillStyle = '#000';
       ctx.fill();
@@ -254,15 +282,15 @@ export class Board {
 
   _pointFromEvent(e) {
     const rect = this.canvas.getBoundingClientRect();
-    const { cell, origin } = this._metrics();
+    const m = this._metrics();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const x = Math.round((mx - origin) / cell);
-    const y = Math.round((my - origin) / cell);
-    if (x < 0 || y < 0 || x >= this.size || y >= this.size) return null;
-    const dx = mx - (origin + x * cell);
-    const dy = my - (origin + y * cell);
-    return dx * dx + dy * dy <= cell * cell * 0.25 ? { x, y } : null;
+    const x = Math.round((mx - m.ox) / m.cell) + m.x0;
+    const y = Math.round((my - m.oy) / m.cell) + m.y0;
+    if (!this._visible(m, x, y)) return null;
+    const dx = mx - this._sx(m, x);
+    const dy = my - this._sy(m, y);
+    return dx * dx + dy * dy <= m.cell * m.cell * 0.25 ? { x, y } : null;
   }
 
   _handleClick(e) {

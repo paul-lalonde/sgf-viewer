@@ -54,6 +54,22 @@ export class Game {
     return { grid, lastMove, moveNumber, captures, marks: marksOf(this.current, this.size) };
   }
 
+  // Effective board-crop (SGF VW) at the current node: the bounding box
+  // of the last VW point list on the path (VW is inherited; an empty VW
+  // resets to the whole board). Returns {x0,y0,x1,y1} or null.
+  viewRect() {
+    let points = null;
+    for (const node of this.path()) {
+      if ('VW' in node.props) {
+        points = (node.props.VW || []).flatMap((v) => expandPoints(v, this.size));
+      }
+    }
+    if (!points || !points.length) return null;
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+  }
+
   // --- navigation ------------------------------------------------------
   // Each node remembers its preferred child (`pref`) so walking back and
   // forth retraces the variation you were on.
