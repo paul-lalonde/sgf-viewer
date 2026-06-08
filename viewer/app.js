@@ -189,9 +189,13 @@ function decodeSGF(buf) {
 // while the engine is busy, and for the mark tools.
 function updateGhost() {
   if (!state.game) return;
-  const placing = state.solve || state.engine || state.explore || state.tool === 'play';
+  // a quiz node answers clicks rather than placing stones: pointer, no ghost
+  const node = state.game.current;
+  const quiz = state.isWgf && (node.props.YN || node.props.YA);
+  const placing = !quiz && (state.solve || state.engine || state.explore || state.tool === 'play');
   const busy = state.engineBusy || state.exploreBusy;
   board.setGhost(placing && !busy ? state.game.nextColor() : null);
+  if (quiz) board.canvas.style.cursor = 'pointer';
 }
 
 function refresh() {
@@ -329,17 +333,26 @@ function followWgfLink(k, text) {
   const yg = node.props.YG || [];
   const yf = (node.props.YF || [])[0];
   let target = null;
-  if (text.trim().toLowerCase() === 'next' && yf) target = { name: yf };
-  else if (yg[k]) target = parseLinkTarget(yg[k]);
-  else if (yf) target = { name: yf };
+  if (yg[k]) target = parseLinkTarget(yg[k]); // explicit target wins
+  else if (findWgfName(text.trim())) target = { name: text.trim() }; // link text is a node name
+  else if (yf) target = { name: yf }; // e.g. "Next"
   if (target) navigateWgf(target);
 }
 
+// Case-insensitive node-name lookup in the current file.
+function findWgfName(name) {
+  if (!state.wgfNames) return null;
+  if (state.wgfNames.has(name)) return state.wgfNames.get(name);
+  const lower = name.toLowerCase();
+  for (const [k, v] of state.wgfNames) if (k.toLowerCase() === lower) return v;
+  return null;
+}
+
 function navigateWgf(target) {
-  if (target.name && state.wgfNames.has(target.name)) {
-    const { recordIndex, node } = state.wgfNames.get(target.name);
-    if (recordIndex !== state.recordIndex) loadRecord(recordIndex);
-    state.game.goTo(node);
+  const hit = target.name && findWgfName(target.name);
+  if (hit) {
+    if (hit.recordIndex !== state.recordIndex) loadRecord(hit.recordIndex);
+    state.game.goTo(hit.node);
     refresh();
   } else if (target.file) {
     loadCrossFileLink(target);
@@ -352,10 +365,10 @@ function navigateWgf(target) {
 // to the labelled node if present.
 async function loadCrossFileLink(target) {
   await loadFile(target.file);
-  if (target.label && state.wgfNames && state.wgfNames.has(target.label)) {
-    const { recordIndex, node } = state.wgfNames.get(target.label);
-    if (recordIndex !== state.recordIndex) loadRecord(recordIndex);
-    state.game.goTo(node);
+  const hit = target.label && findWgfName(target.label);
+  if (hit) {
+    if (hit.recordIndex !== state.recordIndex) loadRecord(hit.recordIndex);
+    state.game.goTo(hit.node);
     refresh();
   }
 }

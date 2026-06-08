@@ -68,8 +68,15 @@ function convertSetup(root, size) {
       delete n.props.XB;
       delete n.props.XW;
     }
-    // X<letter> point lists label those points with that letter (XX → "X",
-    // XY → "Y", …); skip the non-point props (XC counts, XS quiz answers).
+    // Dojo shape marks: XT = triangle, XU = circle (the lessons describe
+    // these points as "triangle" / "circle", not letters).
+    for (const [prop, sgf] of [['XT', 'TR'], ['XU', 'CR']]) {
+      const pts = (n.props[prop] || []).filter((v) => /^[a-s][a-s]$/.test(v));
+      if (pts.length) n.props[sgf] = (n.props[sgf] || []).concat(pts);
+      delete n.props[prop];
+    }
+    // remaining X<letter> point lists label those points with that letter
+    // (XX → "X", XY → "Y", …); skip non-point props (XC counts, XS answers).
     for (const prop of Object.keys(n.props)) {
       if (!/^X[A-Z]$/.test(prop)) continue;
       const vals = n.props[prop];
