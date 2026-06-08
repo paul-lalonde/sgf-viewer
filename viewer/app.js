@@ -200,12 +200,23 @@ function updateGhost() {
   if (quiz) board.canvas.style.cursor = 'pointer';
 }
 
+// Dojo encodes a multi-board "n-up" layout in XC: the tens digit is the
+// split (2x = side-by-side halves, 4x/6x = 2×2 quadrants), achieved by
+// omitting the centre column and/or row line.
+function splitFor(node) {
+  if (!state.isWgf) return null;
+  const xc = parseInt((node.props.XC || [])[0], 10);
+  const tens = Number.isFinite(xc) ? Math.floor(xc / 10) : 0;
+  return tens >= 2 ? { col: true, row: tens >= 4 } : null;
+}
+
 function refresh() {
   const game = state.game;
   if (!game) return;
   const pos = game.position();
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
+  board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();

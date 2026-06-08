@@ -20,6 +20,8 @@ export class Board {
     this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
     this.josekiMarks = null; // [{x,y,type,text}] marks from the joseki node
     this.quizFound = null; // [{x,y}] correct quiz answers found so far
+    this.split = null; // {col,row}: Dojo "n-up" — omit centre line(s) to
+                       // split the board into independent quadrant boards
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -115,6 +117,35 @@ export class Board {
   _sy(m, y) { return m.oy + (y - m.y0) * m.cell; }
   _visible(m, x, y) { return x >= m.x0 && x <= m.x1 && y >= m.y0 && y <= m.y1; }
 
+  // Dojo "n-up" split: the board is shown as independent quadrant boards
+  // by omitting the centre column and/or row line. Returns {c, col, row}
+  // (c = centre index) or null. Disabled when cropped (VW), when the centre
+  // isn't an integer line, or when a stone actually sits on a centre line.
+  _splitAt() {
+    if (!this.split || this.view) return null;
+    const c = (this.size - 1) / 2;
+    if (!Number.isInteger(c)) return null;
+    const g = this.position?.grid;
+    let col = !!this.split.col;
+    let row = !!this.split.row;
+    if (g) {
+      if (col && g.some((rw) => rw[c] !== EMPTY)) col = false;
+      if (row && (g[c] || []).some((v) => v !== EMPTY)) row = false;
+    }
+    return col || row ? { c, col, row } : null;
+  }
+
+  // Show/hide the n-up split. split: {col,row} or null.
+  setSplit(split) {
+    const s = split && (split.col || split.row)
+      ? { col: !!split.col, row: !!split.row } : null;
+    const key = s ? `${s.col}/${s.row}` : '';
+    if (key === (this._splitKey || '')) return;
+    this._splitKey = key;
+    this.split = s;
+    this.draw();
+  }
+
   draw() {
     const m = this._metrics();
     if (!m.px) return;
@@ -145,20 +176,33 @@ export class Board {
   }
 
   _drawGrid(ctx, m) {
+    const sp = this._splitAt();
     const left = this._sx(m, m.x0), right = this._sx(m, m.x1);
     const top = this._sy(m, m.y0), bottom = this._sy(m, m.y1);
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.beginPath();
+    // horizontal lines, broken at the column gap so quadrants separate
     for (let y = m.y0; y <= m.y1; y++) {
+      if (sp?.row && y === sp.c) continue;
       const py = this._sy(m, y);
-      ctx.moveTo(left, py);
-      ctx.lineTo(right, py);
+      if (sp?.col) {
+        ctx.moveTo(left, py); ctx.lineTo(this._sx(m, sp.c - 1), py);
+        ctx.moveTo(this._sx(m, sp.c + 1), py); ctx.lineTo(right, py);
+      } else {
+        ctx.moveTo(left, py); ctx.lineTo(right, py);
+      }
     }
+    // vertical lines, broken at the row gap
     for (let x = m.x0; x <= m.x1; x++) {
+      if (sp?.col && x === sp.c) continue;
       const px = this._sx(m, x);
-      ctx.moveTo(px, top);
-      ctx.lineTo(px, bottom);
+      if (sp?.row) {
+        ctx.moveTo(px, top); ctx.lineTo(px, this._sy(m, sp.c - 1));
+        ctx.moveTo(px, this._sy(m, sp.c + 1)); ctx.lineTo(px, bottom);
+      } else {
+        ctx.moveTo(px, top); ctx.lineTo(px, bottom);
+      }
     }
     ctx.stroke();
   }
@@ -171,12 +215,15 @@ export class Board {
     ctx.font = `${(cell * 0.42).toFixed(1)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const sp = this._splitAt();
     for (let x = m.x0; x <= m.x1; x++) {
+      if (sp?.col && x === sp.c) continue; // no line here, no label
       const px = this._sx(m, x);
       ctx.fillText(COLS[x], px, top - cell * 0.9);
       ctx.fillText(COLS[x], px, bottom + cell * 0.9);
     }
     for (let y = m.y0; y <= m.y1; y++) {
+      if (sp?.row && y === sp.c) continue;
       const py = this._sy(m, y);
       const row = String(this.size - y);
       ctx.fillText(row, left - cell * 0.9, py);
@@ -186,8 +233,10 @@ export class Board {
 
   _drawStars(ctx, m) {
     ctx.fillStyle = '#000';
+    const sp = this._splitAt();
     for (const [x, y] of starPoints(this.size)) {
       if (!this._visible(m, x, y)) continue;
+      if (sp && ((sp.col && x === sp.c) || (sp.row && y === sp.c))) continue;
       ctx.beginPath();
       ctx.arc(this._sx(m, x), this._sy(m, y), m.cell * 0.09, 0, Math.PI * 2);
       ctx.fill();
