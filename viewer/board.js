@@ -19,6 +19,7 @@ export class Board {
     this.showNumbers = false; // draw move numbers on stones
     this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
     this.josekiMarks = null; // [{x,y,type,text}] marks from the joseki node
+    this.quizFound = null; // [{x,y}] correct quiz answers found so far
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -69,6 +70,12 @@ export class Board {
   // Marks from the matched joseki node (triangle, etc.), in dict accent.
   setJosekiMarks(list) {
     this.josekiMarks = list;
+    this.draw();
+  }
+
+  // Correct quiz answers found so far (they "pop" onto the board).
+  setQuizFound(list) {
+    this.quizFound = list;
     this.draw();
   }
 
@@ -131,6 +138,7 @@ export class Board {
     this._drawLastMove(ctx, m);
     this._drawCandidates(ctx, m);
     this._drawJosekiMarks(ctx, m);
+    this._drawQuizFound(ctx, m);
     this._drawJosekiGhosts(ctx, m);
     this._drawGhost(ctx, m);
     ctx.restore();
@@ -300,6 +308,18 @@ export class Board {
     for (const mark of this.josekiMarks) {
       if (!this._visible(m, mark.x, mark.y)) continue;
       drawMark(ctx, mark, this._sx(m, mark.x), this._sy(m, mark.y), m.cell, '#b8860b');
+    }
+  }
+
+  // A solid accent disc at each found quiz answer (a "pop").
+  _drawQuizFound(ctx, m) {
+    if (!this.quizFound) return;
+    ctx.fillStyle = '#2e7d32';
+    for (const { x, y } of this.quizFound) {
+      if (!this._visible(m, x, y)) continue;
+      ctx.beginPath();
+      ctx.arc(this._sx(m, x), this._sy(m, y), m.cell * 0.32, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 

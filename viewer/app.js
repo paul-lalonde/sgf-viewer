@@ -219,6 +219,11 @@ function refresh() {
     const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
     history.replaceState(null, '', hash);
   }
+  if (state.quizNode && state.quizNode !== game.current) { // left the quiz
+    state.quizNode = null;
+    state.quizFound = new Set();
+    board.setQuizFound(null);
+  }
   if (state.isWgf) renderWgfComment($('comment'), game.current);
   else renderComment($('comment'), game.comment(), pos.marks);
   placeComment();
@@ -369,7 +374,7 @@ $('comment').addEventListener('click', (e) => {
 
 function quizAnswers(node) {
   const map = {};
-  for (const e of node.props.YN || []) {
+  for (const e of node.props.YN || node.props.YA || []) {
     const m = /^([a-s][a-s])[:=](\d+)$/.exec(e);
     if (m) map[m[1]] = m[2];
   }
@@ -390,19 +395,37 @@ function quizResponse(node, score) {
 
 function quizClick(x, y) {
   const node = state.game.current;
+  if (node !== state.quizNode) { // entered a new quiz
+    state.quizNode = node;
+    state.quizFound = new Set();
+  }
   const map = quizAnswers(node);
   const pt = String.fromCharCode(97 + x, 97 + y);
   if (!(pt in map)) {
-    feedback('offpath', '⊘ not one of the answer points');
+    feedback('offpath', '⊘ not an answer point');
     return;
   }
   const score = map[pt];
   const resp = quizResponse(node, score);
-  if (score === '0') {
-    if (state.game.next()) refresh(); // advance to the answer/continuation
-    feedback('correct', `✓ ${resp || 'correct'}`);
-  } else {
+  if (score !== '0') {
     feedback('fail', `✗ ${resp || 'not the best — try again'}`);
+    return;
+  }
+  // YA = "find ALL the correct points"; YN = "pick the move"
+  if (node.props.YA && !node.props.YN) {
+    if (state.quizFound.has(pt)) return;
+    state.quizFound.add(pt);
+    board.setQuizFound([...state.quizFound].map((p) => ({ x: p.charCodeAt(0) - 97, y: p.charCodeAt(1) - 97 })));
+    const total = Object.values(map).filter((s) => s === '0').length;
+    if (state.quizFound.size >= total) {
+      feedback('correct', `✓ all ${total} found!`);
+      if (state.game.next()) refresh();
+    } else {
+      feedback('correct', `✓ ${resp || 'Yes'} (${state.quizFound.size}/${total})`);
+    }
+  } else {
+    if (state.game.next()) refresh(); // advance to the continuation
+    feedback('correct', `✓ ${resp || 'correct'}`);
   }
 }
 
@@ -461,7 +484,7 @@ function onBoardClick(x, y) {
     exploreClick(x, y);
     return;
   }
-  if (state.isWgf && game.current.props.YN) {
+  if (state.isWgf && (game.current.props.YN || game.current.props.YA)) {
     quizClick(x, y);
     return;
   }
