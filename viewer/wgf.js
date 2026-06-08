@@ -75,13 +75,24 @@ function convertSetup(root, size) {
       if (pts.length) n.props[sgf] = (n.props[sgf] || []).concat(pts);
       delete n.props[prop];
     }
-    // remaining X<letter> point lists label those points with that letter
-    // (XX → "X", XY → "Y", …); skip non-point props (XC counts, XS answers).
+    // remaining X<letter> props label points: a bare point gets the prop
+    // letter (XX → "X", XY → "Y"); a "point:text" entry gets that text
+    // (XA → the reason number, e.g. bd:1). Skip score-lists (XS "11:…")
+    // and non-point props (XC counts); drop off-board entries (tt = pass).
     for (const prop of Object.keys(n.props)) {
       if (!/^X[A-Z]$/.test(prop)) continue;
       const vals = n.props[prop];
-      if (!vals.every((v) => /^[a-s][a-s]$/.test(v))) continue;
-      n.props.LB = (n.props.LB || []).concat(vals.map((v) => `${v}:${prop[1]}`));
+      if (vals.some((v) => /^\d/.test(v))) continue; // XS-style score:text list
+      const labels = [];
+      for (const v of vals) {
+        if (/^[a-s][a-s]$/.test(v)) labels.push(`${v}:${prop[1]}`);
+        else {
+          const m = /^([a-s][a-s]):(.+)$/.exec(v);
+          if (m) labels.push(`${m[1]}:${m[2]}`);
+        }
+      }
+      if (!labels.length) continue;
+      n.props.LB = (n.props.LB || []).concat(labels);
       delete n.props[prop];
     }
     stack.push(...n.children);
