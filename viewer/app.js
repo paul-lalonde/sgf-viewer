@@ -218,6 +218,7 @@ function refresh() {
     history.replaceState(null, '', hash);
   }
   renderComment($('comment'), game.comment(), pos.marks);
+  placeComment();
   const box = $('commentbox');
   if (document.activeElement !== box) box.value = game.comment();
   $('movecount').textContent =
@@ -276,6 +277,21 @@ function placeInfo() {
   const cs = getComputedStyle($('info'));
   const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
   if (top.offsetHeight > line * 3.3) $('sideinfo').appendChild(top);
+}
+
+// A long node comment (e.g. a .wgf lesson) moves into a scrolling panel
+// below the tree, like the joseki browser; short comments stay under the
+// board. Measured at board width; never relocated while in joseki mode
+// (which owns that panel region).
+function placeComment() {
+  const el = $('comment');
+  const main = document.querySelector('main');
+  main.appendChild(el); // back under the board to measure at full width
+  const cs = getComputedStyle(el);
+  const line = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.45;
+  const long = !state.joseki && el.textContent.trim() && el.offsetHeight > line * 3.3;
+  document.body.classList.toggle('sidecomment', long);
+  if (long) $('commentbody').appendChild(el);
 }
 
 function showError(msg) {

@@ -68,6 +68,15 @@ function convertSetup(root, size) {
       delete n.props.XB;
       delete n.props.XW;
     }
+    // X<letter> point lists label those points with that letter (XX → "X",
+    // XY → "Y", …); skip the non-point props (XC counts, XS quiz answers).
+    for (const prop of Object.keys(n.props)) {
+      if (!/^X[A-Z]$/.test(prop)) continue;
+      const vals = n.props[prop];
+      if (!vals.every((v) => /^[a-s][a-s]$/.test(v))) continue;
+      n.props.LB = (n.props.LB || []).concat(vals.map((v) => `${v}:${prop[1]}`));
+      delete n.props[prop];
+    }
     stack.push(...n.children);
   }
 }
