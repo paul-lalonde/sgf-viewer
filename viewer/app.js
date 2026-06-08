@@ -689,33 +689,27 @@ function renderJosekiNav() {
   const size = state.game.size;
   const { josekiT: T, josekiBase: base, josekiNode: node } = state;
   const toXY = (sx, sy) => T.toBoard(size - 1 - sx, sy);
-  // Colour the line by alternation from whose turn it is on YOUR board —
-  // not the dictionary's colours — so a joseki you took with the corner
-  // as White shows its moves in your colours (the dict has Black first).
-  const toPlay = state.game.nextColor();
-  const other = toPlay === BLACK ? WHITE : BLACK;
-  const altColor = (moveDepth) => (moveDepth % 2 === 0 ? toPlay : other);
-
+  // Every stone is coloured by the matched transform (T.col), and the
+  // comment is colour-swapped by the same transform (T.swap) — one
+  // mapping for both, so ghosts and text never disagree. A joseki you
+  // took with the corner as White matches with swap=true, flipping both.
   const path = []; // base (exclusive) → node
   for (let n = node; n && n !== base; n = n.parent) path.push(n);
   path.reverse();
   const ghosts = [];
-  let moveDepth = 0; // moves walked so far, for alternation (setup stones don't count)
   path.forEach((n, i) => {
     const st = childStone(n, size);
     if (!st) return;
     const [x, y] = toXY(st.x, st.y);
-    const color = st.setup ? T.col(st.color) : altColor(moveDepth++);
-    ghosts.push({ x, y, color, label: String(i + 1) });
+    ghosts.push({ x, y, color: T.col(st.color), label: String(i + 1) });
   });
-  const choiceColor = altColor(moveDepth); // the immediate next move's colour
   const choices = [];
   node.children.forEach((c, i) => {
     const st = childStone(c, size);
     if (!st) return;
     const [x, y] = toXY(st.x, st.y);
     const letter = childLetter(node, c, size) || String.fromCharCode(97 + i);
-    choices.push({ child: c, letter, x, y, color: st.setup ? T.col(st.color) : choiceColor, setup: st.setup });
+    choices.push({ child: c, letter, x, y, color: T.col(st.color), setup: st.setup });
   });
   choices.forEach((ch) => ghosts.push({ x: ch.x, y: ch.y, color: ch.color, label: ch.letter }));
   board.setJosekiGhosts(ghosts.length ? ghosts : null);
@@ -725,10 +719,11 @@ function renderJosekiNav() {
   const where = path.length
     ? `${path.length} move${path.length > 1 ? 's' : ''} into the joseki — board shows the line (numbered)`
     : `matched ${state.josekiMatched} stones`;
-  // the dictionary describes the Black-first convention; if you took the
-  // corner as White the colours are swapped, so swap the words to match
+  // localize the comment to your board: same transform as the ghosts —
+  // swap colours when the match is colour-swapped, rotate direction words
+  // by the geometry
   let commentText = node.props.C ? node.props.C.join('\n') : '';
-  commentText = localizeComment(commentText, T);
+  commentText = localizeComment(commentText, T, T.swap);
   const comment = commentText ? `<div class="jcomment">${escapeHtml(commentText)}</div>` : '';
   const choiceChips = choices.length
     ? '<div class="jcont">' +
@@ -792,8 +787,8 @@ function childLetter(parent, child, size) {
 // the top-right corner with Black first; under a colour-swapped or
 // rotated/reflected match those words must follow, or the description
 // contradicts the stones. Word boundaries keep "copyright" etc. safe.
-function localizeComment(text, T) {
-  if (T.swap) {
+function localizeComment(text, T, colorSwap) {
+  if (colorSwap) {
     text = text.replace(/\b(black|white)\b/gi, (m) =>
       matchCase(m, m[0].toLowerCase() === 'b' ? 'white' : 'black'));
   }
