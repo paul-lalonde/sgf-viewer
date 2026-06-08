@@ -15,6 +15,7 @@ const JOSEKI_SGF = '/joseki/Kogos-Joseki-Dictionary.sgf';
 const COLS = 'ABCDEFGHJKLMNOPQRST';
 const coord = (x, y, size) => COLS[x] + (size - y);
 import { TreeView } from './tree.js';
+import { columnSplitter, rowSplitter } from './resize.js';
 import { BLACK, WHITE } from './colors.js';
 
 const $ = (id) => document.getElementById(id);
@@ -218,6 +219,7 @@ function refresh() {
   } else if (board.candidates) {
     board.setCandidates(null);
   }
+  document.body.classList.toggle('treeoutline', !!tree.isOutline);
   tree.update();
   if (state.file) {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
@@ -1367,6 +1369,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- startup -------------------------------------------------------
+
+// Draggable splitters between the panels (sizes persist in localStorage).
+columnSplitter($('lsplit'), { side: 'left', min: 150, max: 480, store: 'sgf-lcol' });
+columnSplitter($('rsplit'), { side: 'right', min: 220, max: 760, store: 'sgf-rcol' });
+rowSplitter($('split-tree'), $('tree'), { pos: 'above', varName: '--toch', min: 48, max: 600, store: 'sgf-toch' });
+rowSplitter($('split-edit'), $('editpane'), { pos: 'below', varName: '--edith', min: 90, max: 700, store: 'sgf-edith' });
 
 (async function init() {
   setNumbers(localStorage.getItem('sgf-numbers') === '1'); // restore the view pref

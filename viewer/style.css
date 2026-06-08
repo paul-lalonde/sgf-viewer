@@ -7,7 +7,7 @@ body {
   margin: 0;
   height: 100vh;
   display: grid;
-  grid-template-columns: 240px 1fr 320px;
+  grid-template-columns: var(--lcol, 240px) 1fr var(--rcol, 320px);
   background: #fff;
 }
 
@@ -47,9 +47,35 @@ aside {
 #sideinfo #info { text-align: left; padding-bottom: 6px; }
 #sideinfo #gamecomment { text-align: left; max-width: none; }
 
-/* tucked-away file browser: its 240px goes to the tree pane */
-body.nofiles { grid-template-columns: 1fr 560px; }
+/* tucked-away file browser: the board column takes the freed space */
+body.nofiles { grid-template-columns: 1fr var(--rcol, 320px); }
 body.nofiles #filepane { display: none; }
+body.nofiles #lsplit { display: none; }
+
+/* --- resize handles between panels --- */
+.colsplit {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  z-index: 20;
+  cursor: col-resize;
+}
+#lsplit { left: var(--lcol, 240px); margin-left: -4px; }
+#rsplit { right: var(--rcol, 320px); margin-right: -4px; }
+
+.rowsplit {
+  flex: none;
+  height: 7px;
+  margin: -3px 0;
+  cursor: row-resize;
+  z-index: 5;
+}
+
+.colsplit:hover, .rowsplit:hover { background: #cfe0f5; }
+
+#split-tree { display: none; } /* only meaningful when the TOC is capped */
+body.treeoutline.sidecomment #split-tree { display: block; }
 
 #showfiles {
   display: none;
@@ -333,6 +359,9 @@ body.multirecord #recordbar { display: block; }
   flex-direction: column;
   gap: 6px;
   background: #fafafa;
+  flex: 0 0 auto;
+  height: var(--edith, auto); /* #split-edit handle sets this */
+  overflow-y: auto;
 }
 
 #tools { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -395,6 +424,20 @@ body.joseki #tree { flex: 1; }
 
 body.sidecomment #commentpane { display: block; }
 body.sidecomment #tree { flex: 1; }
+
+/* A .wgf slide-outline TOC is capped to a few lines (the current slide is
+   scrolled into view) so the notes panel below gets the rest of the space.
+   The #split-tree handle adjusts --toch. */
+body.treeoutline.sidecomment #tree {
+  flex: 0 0 auto;
+  height: var(--toch, 132px);
+  min-height: 48px;
+  max-height: 60vh;
+}
+body.treeoutline.sidecomment #commentpane {
+  flex: 1 1 auto;
+  max-height: none;
+}
 
 #commenthead {
   position: sticky;

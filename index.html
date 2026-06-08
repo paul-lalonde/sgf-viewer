@@ -18,6 +18,8 @@
     <div id="sideinfo"></div>
   </aside>
   <button id="showfiles" title="Show file browser (f)">files &#187;</button>
+  <div id="lsplit" class="colsplit" title="Drag to resize"></div>
+  <div id="rsplit" class="colsplit" title="Drag to resize"></div>
 
   <main>
     <div id="recordbar"><label for="recordsel">lesson:</label> <select id="recordsel"></select></div>
@@ -50,6 +52,7 @@
   <aside id="treepane">
     <div id="treehead">game tree</div>
     <div id="tree"></div>
+    <div id="split-tree" class="rowsplit" title="Drag to resize"></div>
     <div id="josekipane">
       <div id="josekihead">joseki dictionary</div>
       <div id="josekibody"></div>
@@ -58,6 +61,7 @@
       <div id="commenthead">notes</div>
       <div id="commentbody"></div>
     </div>
+    <div id="split-edit" class="rowsplit" title="Drag to resize"></div>
     <div id="editpane">
       <div id="tools">
         <button class="tool active" data-tool="play" title="Play moves">play</button>

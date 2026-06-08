@@ -34,6 +34,7 @@ export class TreeView {
     this.game = null;
     this._cur = null;
     this.allowOutline = false; // .wgf lessons render as a slide outline
+    this.isOutline = false; // whether the current record rendered as one
   }
 
   setGame(game) {
@@ -43,10 +44,12 @@ export class TreeView {
     this.toggles.clear();
     this.lines = [];
     this._cur = null;
+    this.isOutline = false;
     if (!game) return;
     // A linear, move-free record (a .wgf teaching slideshow) has no tree
     // to show — render a clickable slide outline instead.
     if (this.allowOutline && isLinearLesson(game)) {
+      this.isOutline = true;
       this._buildOutline();
       this.update();
       return;
