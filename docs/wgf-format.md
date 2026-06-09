@@ -162,18 +162,23 @@ layout code). This is the one irregularity in the table; see Open Questions.
 | `YA` | `point:score` list | **quiz** — "find **all** the correct points" | interactive find-all quiz |
 | `YG` | `[index:]target` list | hyperlink **Goto** targets, paired with `_…_` links in the comment; `target` = `:NodeName` or `:B:file.wgf:.label` | resolve & navigate |
 | `YF` | node name | **Forward** target — the "Next"/"Click here" continuation | resolve & navigate |
-| `YO` `YS` | `point:score[:n]` list | quiz variants with an ordered/multi-part answer (inferred: a *sequence* quiz) | **not handled** |
-| `YB` / `YW` | point list | black / white points of an illustrated continuation (inferred) | **not handled** |
+| `YB` / `YW` | point list | black / white stones of an illustrated **continuation** | → translucent ghost stones (numbered by any `LB` on the same point) |
+| `YO` `YS` | `point:score[:order]` list | ordered **sequence** quiz (play moves in turn); occasional multi-point answers | answerable like `YN` (order not enforced) |
 | `YX` | `0`/`1` | a per-node flag on game nodes (inferred: test mode) | ignored |
 | `YC` | one integer | counter near "back" links (inferred) | ignored |
 
-### 4.3 Lines / regions (non-standard)
+### 4.3 Lines / regions
 
 | Prop | Value form | Meaning | Viewer |
 |---|---|---|---|
-| `LR` | `pt:pt` list | line/arrow (inferred — "Line/aRrow") | **not handled** |
-| `LS` | `pt:pt` list | line/segment variant (inferred) | **not handled** |
-| `TT` | point list | shaded region / highlighted points (inferred — "owns the shaded center") | **not handled** |
+| `LN` | `pt:pt` list | solid line (standard SGF) | → solid line |
+| `LR` | `pt:pt` list | solid line / boundary | → solid line |
+| `LS` | `pt:pt` list | **dashed** line — a "broken" sector line (cut by a stone, so it doesn't count) | → dashed line |
+| `TT` | point list | shaded region ("owns the shaded center") | → translucent shaded cells |
+
+`LN`/`LR` draw solid; `LS` dashes. The SECTOR LINE TEST makes the contrast
+explicit: *"the two solid lines are unbroken sector lines; the two dashed
+lines are broken… and don't count."*
 
 ---
 
@@ -275,11 +280,11 @@ the node's `YF` target, else simply the next node.
 These are observed in the files but currently ignored or only partially
 handled:
 
-* `YO` / `YS` — sequence quizzes (`point:score:order`).
-* `YB` / `YW` — illustrated continuation stones (would render as ghosts).
-* `LR` / `LS` — lines/arrows; `TT` — shaded regions.
-* `XN` — lesson menu/table-of-contents tree (we navigate via the record
-  dropdown + links instead).
+* `YO` / `YS` — sequence quizzes are answerable like `YN`, but the move
+  **order** isn't enforced (and the occasional multi-point answer is
+  treated as its constituent points).
+* `XN` — the lesson menu/table-of-contents *tree* (we show its
+  category/title as a breadcrumb but don't build the nav tree).
 * `XC` units digit; `XC[32]`/`XC[60]` exact layouts.
 * `XI`, `YX`, `YC` flags.
 

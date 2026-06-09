@@ -140,10 +140,23 @@ function loadRecord(i) {
     : `${state.file} — SGF viewer`;
   document.title = title;
   $('recordsel').value = String(i);
+  $('crumb').textContent = state.isWgf ? recordCrumb(state.records[i]) : '';
   board.setSize(state.game.size);
   tree.setGame(state.game);
   setInfo();
   refresh();
+}
+
+// A record's place in the Dojo lesson hierarchy, from its XN
+// "level:category:title" tag → "category › title" (drop the level number).
+function recordCrumb(root) {
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    if (n.props.XN) return n.props.XN[0].replace(/^\d+:/, '').replace(/\s*:\s*/g, ' › ');
+    stack.push(...n.children);
+  }
+  return '';
 }
 
 // A dropdown to pick among a multi-record file's lessons (.wgf).
@@ -195,7 +208,7 @@ function updateGhost() {
   if (!state.game) return;
   // a quiz node answers clicks rather than placing stones: pointer, no ghost
   const node = state.game.current;
-  const quiz = state.isWgf && (node.props.YN || node.props.YA);
+  const quiz = state.isWgf && isQuiz(node);
   const placing = !quiz && (state.solve || state.engine || state.explore || state.tool === 'play');
   const busy = state.engineBusy || state.exploreBusy;
   board.setGhost(placing && !busy ? state.game.nextColor() : null);
@@ -212,6 +225,39 @@ function splitFor(node) {
   return tens >= 2 ? { col: true, row: tens >= 4 } : null;
 }
 
+// Board annotations carried by a node: a shaded region (TT), lines and
+// direction arrows (LN/LR plain, LS arrow), and continuation ghost stones
+// (YB/YW black/white, numbered by any LB label on the same point).
+function annotationOverlays(node, size) {
+  const lb = {};
+  for (const e of node.props.LB || []) {
+    const i = e.indexOf(':');
+    const p = parsePoint(e.slice(0, i), size);
+    if (p) lb[`${p.x},${p.y}`] = e.slice(i + 1);
+  }
+  const ghosts = [];
+  for (const [prop, color] of [['YB', BLACK], ['YW', WHITE]]) {
+    for (const v of node.props[prop] || []) {
+      const p = parsePoint(v, size);
+      if (p) ghosts.push({ ...p, color, label: lb[`${p.x},${p.y}`] || '' });
+    }
+  }
+  const lines = [];
+  for (const [prop, dashed] of [['LN', false], ['LR', false], ['LS', true]]) {
+    for (const v of node.props[prop] || []) {
+      const [a, b] = v.split(':');
+      const p = parsePoint(a, size), q = parsePoint(b, size);
+      if (p && q) lines.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, dashed });
+    }
+  }
+  const regions = (node.props.TT || []).map((v) => parsePoint(v, size)).filter(Boolean);
+  return {
+    ghosts: ghosts.length ? ghosts : null,
+    lines: lines.length ? lines : null,
+    regions: regions.length ? regions : null,
+  };
+}
+
 function refresh() {
   const game = state.game;
   if (!game) return;
@@ -220,7 +266,7 @@ function refresh() {
   // A .wgf quiz node's own marks are its answer key; hide the marks on
   // answer points while it's unsolved so the quiz isn't spoiled. Once
   // solved, reveal them and add the answer's XS display marks.
-  if (state.isWgf && (game.current.props.YN || game.current.props.YA)) {
+  if (state.isWgf && isQuiz(game.current)) {
     if (state.quizSolved === game.current) {
       pos.marks = pos.marks.concat(displayMarks(game.current, '0', game.size));
     } else {
@@ -231,6 +277,10 @@ function refresh() {
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
+  const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
+  board.setRegions(ov.regions);
+  board.setLines(ov.lines);
+  board.setWgfGhosts(ov.ghosts);
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
@@ -411,14 +461,19 @@ $('comment').addEventListener('click', (e) => {
 });
 
 // ---------- Dojo quizzes ---------------------------------------------------
-// A quiz node has YN[point:score] (score 0 = correct, others = wrong
-// categories) and XS[score:response] feedback. We support single-point
-// answers; multi-point "sector line" answers are skipped.
+// A quiz node has an answer list (YN "pick the move", YA "find all", or the
+// YO/YS sequence variants) of point:score entries (score 0 = correct), with
+// XS[score:response] feedback. We support single-point answers; YO/YS order
+// isn't enforced and multi-point "sector line" answers are skipped.
+
+const QUIZ_PROPS = ['YN', 'YA', 'YO', 'YS'];
+const isQuiz = (node) => QUIZ_PROPS.some((p) => p in node.props);
+const quizList = (node) => { for (const p of QUIZ_PROPS) if (node.props[p]) return node.props[p]; return []; };
 
 function quizAnswers(node) {
   const map = {};
-  for (const e of node.props.YN || node.props.YA || []) {
-    const m = /^([a-s][a-s])[:=](\d+)$/.exec(e);
+  for (const e of quizList(node)) {
+    const m = /^([a-s][a-s])[:=](\d+)(?::\d+)?$/.exec(e); // point:score[:order]
     if (m) map[m[1]] = m[2];
   }
   return map;
@@ -468,7 +523,7 @@ function displayMarks(node, score, size) {
 // (tt) in YN — score 0 means leaving is correct, non-zero gives the reason
 // it's wrong. Returns that score, or undefined when there's no tt entry.
 function senteScore(node) {
-  for (const e of node.props.YN || []) {
+  for (const e of quizList(node)) {
     const m = /^tt[:=](\d+)$/.exec(e);
     if (m) return m[1];
   }
@@ -494,7 +549,7 @@ function quizClick(x, y) {
   // A click off the listed local responses means "take sente" (play
   // elsewhere); for a YN quiz that's scored by the tt (pass) entry.
   const sente = !(pt in map);
-  const score = sente ? (node.props.YN ? senteScore(node) : undefined) : map[pt];
+  const score = sente ? (node.props.YA ? undefined : senteScore(node)) : map[pt];
   if (score === undefined) {
     feedback('offpath', '⊘ not an answer point');
     return;
@@ -621,7 +676,7 @@ function onBoardClick(x, y) {
     exploreClick(x, y);
     return;
   }
-  if (state.isWgf && (game.current.props.YN || game.current.props.YA)) {
+  if (state.isWgf && isQuiz(game.current)) {
     quizClick(x, y);
     return;
   }

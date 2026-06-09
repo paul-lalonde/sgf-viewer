@@ -20,6 +20,9 @@ export class Board {
     this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
     this.josekiMarks = null; // [{x,y,type,text}] marks from the joseki node
     this.quizFound = null; // [{x,y}] correct quiz answers found so far
+    this.regions = null; // [{x,y}] shaded region (Dojo TT)
+    this.lines = null; // [{x1,y1,x2,y2,arrow}] lines/arrows (LN/LR/LS)
+    this.wgfGhosts = null; // [{x,y,color,label}] continuation stones (YB/YW)
     this.split = null; // {col,row}: Dojo "n-up" — omit centre line(s) to
                        // split the board into independent quadrant boards
     this.setSize(size);
@@ -78,6 +81,24 @@ export class Board {
   // Correct quiz answers found so far (they "pop" onto the board).
   setQuizFound(list) {
     this.quizFound = list;
+    this.draw();
+  }
+
+  // Shaded region (Dojo TT): [{x,y}] or null.
+  setRegions(list) {
+    this.regions = list;
+    this.draw();
+  }
+
+  // Lines/arrows (LN/LR/LS): [{x1,y1,x2,y2,arrow}] or null.
+  setLines(list) {
+    this.lines = list;
+    this.draw();
+  }
+
+  // Continuation ghost stones (Dojo YB/YW): [{x,y,color,label}] or null.
+  setWgfGhosts(list) {
+    this.wgfGhosts = list;
     this.draw();
   }
 
@@ -163,14 +184,17 @@ export class Board {
     this._drawGrid(ctx, m);
     this._drawLabels(ctx, m);
     this._drawStars(ctx, m);
+    this._drawRegions(ctx, m);
     this._drawStones(ctx, m);
     this._drawOwnership(ctx, m);
     this._drawMarks(ctx, m);
+    this._drawLines(ctx, m);
     this._drawLastMove(ctx, m);
     this._drawCandidates(ctx, m);
     this._drawJosekiMarks(ctx, m);
     this._drawQuizFound(ctx, m);
-    this._drawJosekiGhosts(ctx, m);
+    this._drawGhostStones(ctx, m, this.josekiGhosts);
+    this._drawGhostStones(ctx, m, this.wgfGhosts);
     this._drawGhost(ctx, m);
     ctx.restore();
   }
@@ -378,11 +402,38 @@ export class Board {
     }
   }
 
-  // Translucent numbered stones showing a joseki's continuation.
-  _drawJosekiGhosts(ctx, m) {
-    if (!this.josekiGhosts) return;
+  // Shaded region behind the stones (Dojo TT — territory/moyo highlight).
+  _drawRegions(ctx, m) {
+    if (!this.regions) return;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+    for (const { x, y } of this.regions) {
+      if (!this._visible(m, x, y)) continue;
+      ctx.fillRect(this._sx(m, x) - m.cell / 2, this._sy(m, y) - m.cell / 2, m.cell, m.cell);
+    }
+  }
+
+  // Lines over the board: solid sector lines/boundaries (LN/LR) and dashed
+  // "broken" lines (LS — sector lines cut by a stone, so they don't count).
+  _drawLines(ctx, m) {
+    if (!this.lines) return;
+    ctx.strokeStyle = '#c0392b';
+    ctx.lineWidth = 2;
+    for (const l of this.lines) {
+      if (!this._visible(m, l.x1, l.y1) || !this._visible(m, l.x2, l.y2)) continue;
+      ctx.setLineDash(l.dashed ? [5, 4] : []);
+      ctx.beginPath();
+      ctx.moveTo(this._sx(m, l.x1), this._sy(m, l.y1));
+      ctx.lineTo(this._sx(m, l.x2), this._sy(m, l.y2));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
+  // Translucent numbered stones (a joseki or .wgf continuation).
+  _drawGhostStones(ctx, m, list) {
+    if (!list) return;
     const r = m.cell * 0.46;
-    for (const g of this.josekiGhosts) {
+    for (const g of list) {
       if (!this._visible(m, g.x, g.y)) continue;
       const cx = this._sx(m, g.x), cy = this._sy(m, g.y);
       ctx.save();
