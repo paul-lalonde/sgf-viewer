@@ -200,7 +200,8 @@ function convertSetup(root, size) {
 export function xsProse(text) {
   return text
     .replace(/^([A-Z]{1,2}(\[[^\][]*\])+)+/, '') // leading mark groups
-    .replace(/_([^_]+)_/g, '$1') // drop hyperlink underscores
+    .replace(/\n\s*_[^_\r\n]+_\s*$/, '') // trailing standalone link (e.g. _Next_)
+    .replace(/_([^_]+)_/g, '$1') // keep inline link text
     .trim();
 }
 

@@ -2,7 +2,7 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game.js';
+import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup, parsePoint } from './game.js';
 
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
@@ -215,13 +215,18 @@ function splitFor(node) {
 function refresh() {
   const game = state.game;
   if (!game) return;
+  if (state.quizSolved && state.quizSolved !== game.current) state.quizSolved = null;
   const pos = game.position();
-  // A .wgf quiz node's own marks are its answer key (triangles on the
-  // right points, X/labels on the wrong ones); hide the marks that sit on
-  // answer points so the quiz isn't spoiled.
+  // A .wgf quiz node's own marks are its answer key; hide the marks on
+  // answer points while it's unsolved so the quiz isn't spoiled. Once
+  // solved, reveal them and add the answer's XS display marks.
   if (state.isWgf && (game.current.props.YN || game.current.props.YA)) {
-    const ans = quizAnswers(game.current);
-    pos.marks = pos.marks.filter((m) => !(String.fromCharCode(97 + m.x, 97 + m.y) in ans));
+    if (state.quizSolved === game.current) {
+      pos.marks = pos.marks.concat(displayMarks(game.current, '0', game.size));
+    } else {
+      const ans = quizAnswers(game.current);
+      pos.marks = pos.marks.filter((m) => !(String.fromCharCode(97 + m.x, 97 + m.y) in ans));
+    }
   }
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
@@ -431,6 +436,34 @@ function quizResponse(node, score) {
   return state.wgfResponses?.[score] ?? null;
 }
 
+// The board marks carried inside an XS display response (the leading
+// TR[..]/XX[..]/LB[..]… before the prose) — shown as the answer reveal.
+const REVEAL_SHAPE = { TR: 'triangle', XT: 'triangle', CR: 'circle', XU: 'circle', SQ: 'square', MA: 'x' };
+function displayMarks(node, score, size) {
+  const xs = (node.props.XS || []).find((e) => e.startsWith(`${score}:`));
+  if (!xs) return [];
+  const lead = (xs.slice(score.length + 1).match(/^([A-Z]{1,2}(?:\[[^\][]*\])+)+/) || [''])[0];
+  const marks = [];
+  const re = /([A-Z]{1,2})((?:\[[^\][]*\])+)/g;
+  for (let m; (m = re.exec(lead)); ) {
+    const prop = m[1];
+    for (const raw of m[2].match(/\[([^\][]*)\]/g)) {
+      const v = raw.slice(1, -1);
+      if (prop === 'LB') {
+        const i = v.indexOf(':');
+        const pt = parsePoint(v.slice(0, i), size);
+        if (pt) marks.push({ ...pt, type: 'label', text: v.slice(i + 1) });
+      } else {
+        const pt = parsePoint(v, size);
+        if (!pt) continue;
+        if (REVEAL_SHAPE[prop]) marks.push({ ...pt, type: REVEAL_SHAPE[prop] });
+        else if (/^X[A-Z]$/.test(prop)) marks.push({ ...pt, type: 'label', text: prop[1] });
+      }
+    }
+  }
+  return marks;
+}
+
 // "Take sente"/play-elsewhere: Dojo scores a tenuki via the pass entry
 // (tt) in YN — score 0 means leaving is correct, non-zero gives the reason
 // it's wrong. Returns that score, or undefined when there's no tt entry.
@@ -444,6 +477,14 @@ function senteScore(node) {
 
 function quizClick(x, y) {
   const node = state.game.current;
+  // Answered correctly already: the reveal is showing — any click continues
+  // to the next turn (Dojo: "click to get to the next turn").
+  if (state.quizSolved === node) {
+    state.quizSolved = null;
+    state.game.next();
+    refresh();
+    return;
+  }
   if (node !== state.quizNode) { // entered a new quiz
     state.quizNode = node;
     state.quizFound = new Set();
@@ -470,14 +511,16 @@ function quizClick(x, y) {
     board.setQuizFound([...state.quizFound].map((p) => ({ x: p.charCodeAt(0) - 97, y: p.charCodeAt(1) - 97 })));
     const total = Object.values(map).filter((s) => s === '0').length;
     if (state.quizFound.size >= total) {
+      state.quizSolved = node; // reveal; next click continues
       feedback('correct', `✓ all ${total} found!`);
-      if (state.game.next()) refresh();
+      refresh();
     } else {
       feedback('correct', `✓ ${resp || 'Yes'} (${state.quizFound.size}/${total})`);
     }
   } else {
-    if (state.game.next()) refresh(); // advance to the continuation
+    state.quizSolved = node; // reveal the answer; next click continues
     feedback('correct', `✓ ${resp || (sente ? 'sente' : 'correct')}`);
+    refresh();
   }
 }
 

@@ -51,9 +51,9 @@ swallow a real property that follows (we lost a `W[mb]` move this way).
 
 > **Viewer:** the SGF parser reads an `XS` value with bracket-**depth**
 > matching (`parseNestedValue`), so the whole display response is preserved;
-> `xsProse()` strips the leading mark groups to recover the feedback text.
-> (It also tolerates stray junk inside any node as a backstop against other
-> unescaped `]`.) The nested marks are parsed but not yet drawn — see §5.4.
+> `xsProse()` recovers the feedback text and `displayMarks()` the marks. (It
+> also tolerates stray junk inside any node as a backstop against other
+> unescaped `]`.) Both are shown on the answer reveal — see §5.4.
 
 ### 1.3 Upper-cased coordinates
 Coordinates are lower-case `a`–`s`, but a few are accidentally upper-cased
@@ -144,7 +144,7 @@ renderer needs; everything in §4–§5 is translated into these.
 | `XX` | point list | **"X"** marks / labels | → `LB` `pt:X` |
 | `XY` `XE` `XZ` `XD` `XG` | point list | **letter labels** (Y, E, Z, D, G) used in the prose | → `LB` `pt:<letter>` |
 | `XA` | `point:code` list | **answer marks** — wrong-move points labelled with the reason code (see §5.4); `tt:` = pass | → `LB` `pt:<code>` (off-board `tt` dropped) |
-| `XS` | `score:<marks><prose>` | **quiz feedback** keyed by score code: a one-level display response (marks + prose), see §1.2 | prose → feedback (file-wide map); marks parsed, not yet drawn |
+| `XS` | `score:<marks><prose>` | **quiz feedback** keyed by score code: a one-level display response (marks + prose), see §1.2 | prose → feedback; marks → answer reveal (§5.4) |
 | `XN` | `level:category:title` | hierarchical **menu / table-of-contents** entry | not rendered |
 | `XI` | one integer | "illustrated example" flag (inferred) | ignored |
 
@@ -236,11 +236,13 @@ display response of marks + prose. A node usually defines a bespoke `XS[0]`
 **file-wide shared vocabulary** for the wrong-answer codes (`44`/`45`/…),
 which are defined as prose on whichever nodes introduce them.
 
-> **Viewer:** clicking a listed point looks up its score; `0` advances,
-> non-zero shows the `XS` prose (the node's own, else the file-wide reason
-> map). The node's own answer-key marks (`TR`/`LB` on answer points) are
-> **hidden** while the quiz is unanswered so it isn't spoiled. The reveal
-> marks carried *inside* `XS` are parsed but not yet drawn on answer.
+> **Viewer:** clicking a listed point looks up its score. The node's own
+> answer-key marks are **hidden** while the quiz is unanswered, so it isn't
+> spoiled. A non-zero score shows the `XS` reason (the node's own prose, else
+> the file-wide reason map) and the player retries. A `0` reveals the answer
+> — un-hides the answer-key marks, draws the `XS[0]` display marks, and shows
+> the prose — then waits for a click to continue (Dojo: "click to get to the
+> next turn"), rather than auto-advancing.
 
 Observed reason codes (Contact/Sector): `1` continue contact · `2`/`3` don't
 take/butt · `5` both stable, take sente · `44` you're stable, take sente ·
@@ -279,8 +281,6 @@ handled:
 * `XN` — lesson menu/table-of-contents tree (we navigate via the record
   dropdown + links instead).
 * `XC` units digit; `XC[32]`/`XC[60]` exact layouts.
-* `XS` reveal **marks** — the marks carried inside the feedback value (§1.2)
-  are parsed but not drawn on answer (the prose is shown).
 * `XI`, `YX`, `YC` flags.
 
 ## 7. Open questions
