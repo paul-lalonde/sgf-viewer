@@ -81,20 +81,7 @@ function expandPackedMoves(root) {
   while (stack.length) {
     const n = stack.pop();
     const seq = n.moveSeq;
-    if (seq && seq.length > 1 && n.props.AE) {
-      // A packed node that also clears the board (AE) is a self-contained
-      // diagram — e.g. an endgame sequence shown on a fresh board, numbered
-      // by LB. The moves are often grouped by colour (not in play order),
-      // so don't replay them: place them all at once as setup stones; the
-      // LB labels carry the sequence. (The board shows the whole diagram.)
-      for (const [c, v] of seq) {
-        const prop = c === 'B' ? 'AB' : 'AW';
-        n.props[prop] = (n.props[prop] || []).concat(v);
-      }
-      delete n.props.B;
-      delete n.props.W;
-      delete n.moveSeq;
-    } else if (seq && seq.length > 1) {
+    if (seq && seq.length > 1) {
       const origChildren = n.children;
       delete n.props.B;
       delete n.props.W;
@@ -108,8 +95,10 @@ function expandPackedMoves(root) {
       }
       cur.children = origChildren;
       for (const c of origChildren) c.parent = cur;
+      // setup (AE/AB/AW) stays on the first node so it applies before the
+      // moves; the comment/labels/marks move to the final move.
       for (const k of Object.keys(n.props)) {
-        if (k === 'N' || k === 'SZ' || k === 'B' || k === 'W') continue;
+        if (['N', 'SZ', 'B', 'W', 'AE', 'AB', 'AW'].includes(k)) continue;
         cur.props[k] = n.props[k];
         delete n.props[k];
       }
@@ -155,11 +144,12 @@ function rerouteGameLine(root) {
   }
 }
 
-// Dojo defines each lesson position with XB/XW (full board state per
-// node, replacing the previous), not SGF's incremental AB/AW. Convert
-// every XB/XW node to: clear the whole board (AE) then place the stones
-// (AB/AW) — so our normal SGF replay reproduces the reset semantics and
-// every viewer feature works unchanged. Moves (B/W) are left as-is.
+// Dojo lists a position with XB/XW (black/white points), not SGF's AB/AW.
+// On a pure setup slide this is the FULL board state replacing the
+// previous one, so clear first (AE) then place the stones. But on a move
+// node the XB/XW just ADD stones to the running game (e.g. an endgame
+// shown over the existing position) — there we must NOT clear. Moves
+// (B/W) are otherwise left as-is.
 function convertSetup(root, size) {
   const last = String.fromCharCode(97 + size - 1);
   const whole = `aa:${last}${last}`;
@@ -167,7 +157,7 @@ function convertSetup(root, size) {
   while (stack.length) {
     const n = stack.pop();
     if (n.props.XB || n.props.XW) {
-      n.props.AE = [whole];
+      if (!(n.props.B || n.props.W)) n.props.AE = [whole]; // reset only on a setup slide
       if (n.props.XB) n.props.AB = (n.props.AB || []).concat(n.props.XB);
       if (n.props.XW) n.props.AW = (n.props.AW || []).concat(n.props.XW);
       delete n.props.XB;
