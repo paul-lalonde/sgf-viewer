@@ -307,6 +307,7 @@ function refresh() {
     state.quizNode = null;
     state.quizFound = new Set();
     board.setQuizFound(null);
+    feedback('', ''); // erase the quiz verdict (e.g. the green "✓ Yes")
   }
   if (state.isWgf) renderWgfComment($('comment'), game.current);
   else renderComment($('comment'), game.comment(), pos.marks);
