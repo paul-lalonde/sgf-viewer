@@ -7,7 +7,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
-import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment } from './wgf.js';
+import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses } from './wgf.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -117,6 +117,7 @@ async function loadFile(name) {
   state.records = records;
   state.isWgf = isWgf;
   state.wgfNames = isWgf ? buildNameIndex(records) : null;
+  state.wgfResponses = isWgf ? buildResponses(records) : null;
   tree.allowOutline = isWgf; // .wgf lesson records render as a slide outline
   clearTimeout(state.replyTimer);
   feedback('', '');
@@ -423,10 +424,21 @@ function quizResponse(node, score) {
   for (const e of node.props.XS || []) {
     if (!e.startsWith(`${score}:`)) continue;
     const text = e.slice(score.length + 1);
-    if (/^[A-Z]{2}\[/.test(text)) return null;
+    if (/^[A-Z]{2}\[/.test(text)) break; // board markup, not prose — use the file map
     return text.replace(/_([^_]+)_/g, '$1').trim(); // drop link underscores
   }
-  return null;
+  return state.wgfResponses?.[score] ?? null;
+}
+
+// "Take sente"/play-elsewhere: Dojo scores a tenuki via the pass entry
+// (tt) in YN — score 0 means leaving is correct, non-zero gives the reason
+// it's wrong. Returns that score, or undefined when there's no tt entry.
+function senteScore(node) {
+  for (const e of node.props.YN || []) {
+    const m = /^tt[:=](\d+)$/.exec(e);
+    if (m) return m[1];
+  }
+  return undefined;
 }
 
 function quizClick(x, y) {
@@ -437,11 +449,14 @@ function quizClick(x, y) {
   }
   const map = quizAnswers(node);
   const pt = String.fromCharCode(97 + x, 97 + y);
-  if (!(pt in map)) {
+  // A click off the listed local responses means "take sente" (play
+  // elsewhere); for a YN quiz that's scored by the tt (pass) entry.
+  const sente = !(pt in map);
+  const score = sente ? (node.props.YN ? senteScore(node) : undefined) : map[pt];
+  if (score === undefined) {
     feedback('offpath', '⊘ not an answer point');
     return;
   }
-  const score = map[pt];
   const resp = quizResponse(node, score);
   if (score !== '0') {
     feedback('fail', `✗ ${resp || 'not the best — try again'}`);
@@ -461,7 +476,7 @@ function quizClick(x, y) {
     }
   } else {
     if (state.game.next()) refresh(); // advance to the continuation
-    feedback('correct', `✓ ${resp || 'correct'}`);
+    feedback('correct', `✓ ${resp || (sente ? 'sente' : 'correct')}`);
   }
 }
 

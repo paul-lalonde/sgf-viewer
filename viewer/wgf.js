@@ -170,6 +170,27 @@ function convertSetup(root, size) {
   }
 }
 
+// Build a file-wide map of quiz feedback by score code (XS "score:text").
+// The reason vocabulary (1, 44, 45, …) is shared across nodes, so many
+// nodes reference a score whose prose lives on another node. Board-markup
+// answers (XS "0:TR[…]") are skipped — they're per-node, not reasons.
+export function buildResponses(records) {
+  const map = {};
+  for (const root of records) {
+    const stack = [root];
+    while (stack.length) {
+      const n = stack.pop();
+      for (const e of n.props.XS || []) {
+        const m = /^(\d+):(.*)$/.exec(e);
+        if (!m || /^[A-Z]{2}\[/.test(m[2])) continue;
+        if (!(m[1] in map)) map[m[1]] = m[2].replace(/_([^_]+)_/g, '$1').trim();
+      }
+      stack.push(...n.children);
+    }
+  }
+  return map;
+}
+
 // A record's display title: the first N[] near its root, else a number.
 export function recordTitle(root, index) {
   for (let n = root, k = 0; n && k < 3; n = n.children[0], k++) {
