@@ -350,8 +350,19 @@ export function singleSetup(node, size) {
 
 export function parsePoint(value, size) {
   if (!value || value.length < 2) return null;
-  const x = value.charCodeAt(0) - 97;
-  const y = value.charCodeAt(1) - 97;
+  // Coordinates are lower-case a–s. Dojo sometimes upper-cases one (e.g.
+  // "OK" for "ok"); on a real board an upper-case letter is never a valid
+  // point, so fold it to lower-case when the literal reading is off-board.
+  const coord = (i) => {
+    let n = value.charCodeAt(i) - 97;
+    if (n < 0 || n >= size) {
+      const folded = (value.charCodeAt(i) | 32) - 97;
+      if (folded >= 0 && folded < size) n = folded;
+    }
+    return n;
+  };
+  const x = coord(0);
+  const y = coord(1);
   if (x < 0 || y < 0 || x >= size || y >= size) return null; // includes 'tt' pass
   return { x, y };
 }
