@@ -209,10 +209,12 @@ function updateGhost() {
   // a quiz node answers clicks rather than placing stones: pointer, no ghost
   const node = state.game.current;
   const quiz = state.isWgf && isQuiz(node);
-  const placing = !quiz && (state.solve || state.engine || state.explore || state.tool === 'play');
+  // In .wgf the play tool navigates (no stone placed), so no ghost there.
+  const placing = !quiz && (state.solve || state.engine || state.explore
+    || (state.tool === 'play' && !state.isWgf));
   const busy = state.engineBusy || state.exploreBusy;
   board.setGhost(placing && !busy ? state.game.nextColor() : null);
-  if (quiz) board.canvas.style.cursor = 'pointer';
+  if (state.isWgf && state.tool === 'play') board.canvas.style.cursor = 'pointer';
 }
 
 // Dojo encodes a multi-board "n-up" layout in XC: the tens digit is the
@@ -678,6 +680,13 @@ function onBoardClick(x, y) {
   }
   if (state.isWgf && isQuiz(game.current)) {
     quizClick(x, y);
+    return;
+  }
+  // A .wgf is a guided playout: a plain click steps to the next position
+  // (Dojo's "just click"), it does not place a stone or start a variation.
+  // (An explicitly chosen mark tool still annotates — see below.)
+  if (state.isWgf && state.tool === 'play') {
+    if (game.next()) refresh();
     return;
   }
   if (state.tool === 'play') {

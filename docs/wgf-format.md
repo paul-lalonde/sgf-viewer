@@ -104,7 +104,10 @@ and the "real" continuation is named by a `YF` ("Next"/"Click here") target
 > separated only by setup nodes, we splice it in as the continuation and
 > demote the inline reference diagrams to an off-line branch (still reachable
 > via their links). Pure-setup lesson records (no moves) are shown as a flat
-> "slide outline" instead of a tree.
+> "slide outline" instead of a tree. A `.wgf` is a *guided playout*, so a
+> plain board click **advances** to the next position (Dojo's "just click")
+> rather than playing a stone — it never creates a variation. On a quiz node
+> the click answers the quiz; an explicitly chosen mark tool still annotates.
 
 ---
 
