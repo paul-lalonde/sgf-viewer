@@ -33,24 +33,27 @@ properties (often `; // Record 3 Turn 28 node 61`).
 > **Viewer:** `stripComments()` removes `//`…EOL when not inside a value,
 > before handing the text to the SGF parser.
 
-### 1.2 Unescaped `]` inside values
-SGF requires `]` inside a property value to be escaped as `\]`. WGF does
-**not** escape them — quiz-feedback strings embed board markup and prose
-containing brackets, e.g.
+### 1.2 Nested properties inside `XS` values
+SGF property values do not nest brackets and require `]` to be escaped as
+`\]`. WGF's `XS` (quiz-feedback) value does neither: it is a **one-level
+"display response"** — some mark properties followed by prose — written
+with the inner brackets *balanced* but unescaped, e.g.
 
 ```
 XS[0:XY[nb][nb]XX[lb]TR[md][lc]Yes. X bends... _Next_]
 ```
 
-A naive parser ends the value at the first `]` and then mis-reads the rest
-of the line as properties, which can swallow a real property that follows
-(we lost a `W[mb]` move this way).
+Semantically `XS[score:…]` means *"when the answer scores `score`, draw
+these marks and show this text."* The value runs to the `]` that balances
+the opening `[`, **not** the first `]`. A naive parser truncates at the
+first `]` (here, after `XY[nb`), losing the marks and the prose — and can
+swallow a real property that follows (we lost a `W[mb]` move this way).
 
-> **Viewer:** the SGF parser tolerates stray, non-property junk inside a
-> node — when it expects a property identifier and finds none, it skips the
-> stray character and keeps scanning rather than abandoning the node, so a
-> move/comment after a malformed value is still recovered. (The malformed
-> `XS` value itself is still truncated; see Open Questions.)
+> **Viewer:** the SGF parser reads an `XS` value with bracket-**depth**
+> matching (`parseNestedValue`), so the whole display response is preserved;
+> `xsProse()` strips the leading mark groups to recover the feedback text.
+> (It also tolerates stray junk inside any node as a backstop against other
+> unescaped `]`.) The nested marks are parsed but not yet drawn — see §5.4.
 
 ### 1.3 Upper-cased coordinates
 Coordinates are lower-case `a`–`s`, but a few are accidentally upper-cased
@@ -141,7 +144,7 @@ renderer needs; everything in §4–§5 is translated into these.
 | `XX` | point list | **"X"** marks / labels | → `LB` `pt:X` |
 | `XY` `XE` `XZ` `XD` `XG` | point list | **letter labels** (Y, E, Z, D, G) used in the prose | → `LB` `pt:<letter>` |
 | `XA` | `point:code` list | **answer marks** — wrong-move points labelled with the reason code (see §5.4); `tt:` = pass | → `LB` `pt:<code>` (off-board `tt` dropped) |
-| `XS` | `score:text` | **quiz feedback** keyed by score code; text may contain prose *and* board markup | feedback string (file-wide map) |
+| `XS` | `score:<marks><prose>` | **quiz feedback** keyed by score code: a one-level display response (marks + prose), see §1.2 | prose → feedback (file-wide map); marks parsed, not yet drawn |
 | `XN` | `level:category:title` | hierarchical **menu / table-of-contents** entry | not rendered |
 | `XI` | one integer | "illustrated example" flag (inferred) | ignored |
 
@@ -225,15 +228,19 @@ A quiz node carries `YN` (pick the move) or `YA` (find all). Each entry is
 `point:score`:
 
 * `score = 0` → an acceptable answer.
-* `score > 0` → a wrong answer; the number is a **reason code** whose text
-  lives in `XS` (`score:text`). The reason vocabulary is **shared across the
-  whole file** — a node usually only defines `XS[0]` (often board markup),
-  and references shared codes like `44`/`45` defined elsewhere.
+* `score > 0` → a wrong answer; the number is a **reason code**.
+
+The matching `XS[score:…]` (§1.2) gives the feedback for that score: a
+display response of marks + prose. A node usually defines a bespoke `XS[0]`
+(its own "correct" explanation, often led by reveal marks) and relies on a
+**file-wide shared vocabulary** for the wrong-answer codes (`44`/`45`/…),
+which are defined as prose on whichever nodes introduce them.
 
 > **Viewer:** clicking a listed point looks up its score; `0` advances,
-> non-zero shows the `XS` reason (resolved against a file-wide `XS` map). The
-> node's own answer-key marks (`TR`/`LB` sitting on answer points) are
-> **hidden** while the quiz is unanswered so it isn't spoiled.
+> non-zero shows the `XS` prose (the node's own, else the file-wide reason
+> map). The node's own answer-key marks (`TR`/`LB` on answer points) are
+> **hidden** while the quiz is unanswered so it isn't spoiled. The reveal
+> marks carried *inside* `XS` are parsed but not yet drawn on answer.
 
 Observed reason codes (Contact/Sector): `1` continue contact · `2`/`3` don't
 take/butt · `5` both stable, take sente · `44` you're stable, take sente ·
@@ -272,8 +279,8 @@ handled:
 * `XN` — lesson menu/table-of-contents tree (we navigate via the record
   dropdown + links instead).
 * `XC` units digit; `XC[32]`/`XC[60]` exact layouts.
-* `XS` values truncated by §1.2 (the per-node correct-answer prose is lost;
-  the shared reason text still resolves).
+* `XS` reveal **marks** — the marks carried inside the feedback value (§1.2)
+  are parsed but not drawn on answer (the prose is shown).
 * `XI`, `YX`, `YC` flags.
 
 ## 7. Open questions
