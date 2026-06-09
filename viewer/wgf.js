@@ -45,11 +45,31 @@ export function parseWgf(text) {
   const fileSize = records.find((r) => r.props.SZ)?.props.SZ[0] || '19';
   for (const r of records) {
     if (!r.props.SZ) r.props.SZ = [fileSize];
+    snapshotSource(r); // stash original Dojo props before we transform them
     convertSetup(r, parseInt(r.props.SZ[0], 10) || 19);
     expandPackedMoves(r);
     rerouteGameLine(r);
   }
   return records;
+}
+
+// A node's original properties as readable text (one property per line),
+// so the UI can show the untouched .wgf source for a node.
+export function propsToText(props) {
+  return Object.entries(props)
+    .map(([k, vals]) => k + vals.map((v) => `[${v}]`).join(''))
+    .join('\n');
+}
+
+// Record the source text of every node before convertSetup/expand rewrite
+// the props (XB/XW, XA, XT, packed moves…).
+function snapshotSource(root) {
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    n.source = propsToText(n.props);
+    stack.push(...n.children);
+  }
 }
 
 // Dojo "game test" records pack a whole opening as many B[]/W[] moves in
@@ -69,7 +89,8 @@ function expandPackedMoves(root) {
       n.props[seq[0][0]] = [seq[0][1]];
       let cur = n;
       for (let i = 1; i < seq.length; i++) {
-        cur.children = [{ props: { [seq[i][0]]: [seq[i][1]] }, parent: cur, children: [] }];
+        // split moves share the original packed node's source
+        cur.children = [{ props: { [seq[i][0]]: [seq[i][1]] }, parent: cur, children: [], source: n.source }];
         cur = cur.children[0];
       }
       cur.children = origChildren;

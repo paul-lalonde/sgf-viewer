@@ -25,9 +25,10 @@ const MARGIN = { left: 12, top: 4 };
 const CLEAN_SCAN = 40; // rows to try for a crossing-free connector
 
 export class TreeView {
-  constructor(container, { onSelect } = {}) {
+  constructor(container, { onSelect, onInspect } = {}) {
     this.container = container;
     this.onSelect = onSelect || (() => {});
+    this.onInspect = onInspect || (() => {});
     this.info = new Map(); // node -> {el, num, seg?}
     this.toggles = new Map(); // branch node -> {btn, node, open}
     this.lines = []; // parents always precede their variations
@@ -35,6 +36,14 @@ export class TreeView {
     this._cur = null;
     this.allowOutline = false; // .wgf lessons render as a slide outline
     this.isOutline = false; // whether the current record rendered as one
+    // right-click (ctrl-click on macOS) a node to inspect its source
+    this.container.addEventListener('contextmenu', (e) => {
+      const cell = e.target.closest('.move, .seg, .oline');
+      if (cell?._node) {
+        e.preventDefault();
+        this.onInspect(cell._node, e);
+      }
+    });
   }
 
   setGame(game) {
@@ -106,6 +115,7 @@ export class TreeView {
       row.innerHTML = `<span class="onum">${i}</span><span class="otitle"></span>`;
       row.lastChild.textContent = slideTitle(node, i);
       const n = node;
+      row._node = n;
       row.addEventListener('click', () => this.onSelect(n));
       list.appendChild(row);
       this.info.set(node, { el: row });
@@ -169,6 +179,7 @@ export class TreeView {
     segEl.textContent = `${seg.first}–${seg.last}`;
     segEl.title = `moves ${seg.first}–${seg.last}`;
     const lastNode = run[run.length - 1].node;
+    segEl._node = lastNode;
     segEl.addEventListener('click', () => this.onSelect(lastNode));
     for (const { node, num } of run) this.info.set(node, { el: segEl, num, seg });
     el.appendChild(segEl);
@@ -186,6 +197,7 @@ export class TreeView {
       el.textContent = '·';
     }
     if (node.props.C) el.classList.add('commented');
+    el._node = node;
     el.addEventListener('click', () => this.onSelect(node));
     this.info.set(node, { el, num });
     return el;

@@ -7,7 +7,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
-import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses } from './wgf.js';
+import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText } from './wgf.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -34,6 +34,7 @@ const tree = new TreeView($('tree'), {
     state.game?.goTo(node);
     refresh();
   },
+  onInspect: (node, e) => showNodeSource(node, e),
 });
 
 // ---------- file browser ------------------------------------------------
@@ -477,6 +478,48 @@ function quizClick(x, y) {
   } else {
     if (state.game.next()) refresh(); // advance to the continuation
     feedback('correct', `✓ ${resp || (sente ? 'sente' : 'correct')}`);
+  }
+}
+
+// Right-click a tree node to inspect its source. For .wgf we show the
+// original Dojo properties (captured before our transforms); otherwise the
+// node's current properties.
+function showNodeSource(node, e) {
+  closeNodeSource();
+  const pop = document.createElement('div');
+  pop.id = 'nodesrc';
+  const head = document.createElement('div');
+  head.className = 'nshead';
+  head.textContent = state.isWgf ? 'node source (.wgf)' : 'node source';
+  const close = document.createElement('button');
+  close.textContent = '×';
+  close.title = 'Close (Esc)';
+  close.addEventListener('click', closeNodeSource);
+  head.appendChild(close);
+  const pre = document.createElement('pre');
+  pre.textContent = node.source ?? propsToText(node.props) ?? '';
+  if (!pre.textContent.trim()) pre.textContent = '(empty node)';
+  pop.append(head, pre);
+  document.body.appendChild(pop);
+  // place near the click, clamped into the viewport
+  const r = pop.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(e.clientX, window.innerWidth - r.width - 8))}px`;
+  pop.style.top = `${Math.max(8, Math.min(e.clientY, window.innerHeight - r.height - 8))}px`;
+  const onKey = (ev) => ev.key === 'Escape' && closeNodeSource();
+  const onDown = (ev) => !pop.contains(ev.target) && closeNodeSource();
+  pop._cleanup = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('mousedown', onDown);
+  };
+  document.addEventListener('keydown', onKey);
+  setTimeout(() => document.addEventListener('mousedown', onDown), 0);
+}
+
+function closeNodeSource() {
+  const pop = $('nodesrc');
+  if (pop) {
+    pop._cleanup?.();
+    pop.remove();
   }
 }
 

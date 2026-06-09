@@ -233,6 +233,53 @@ body.multirecord #recordbar { display: block; }
 #feedback.fail { color: #c62828; }
 #feedback.offpath { color: #e65100; }
 
+/* right-click-a-node source popup */
+#nodesrc {
+  position: fixed;
+  z-index: 100;
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  max-height: 60vh;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #888;
+  border-radius: 6px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+}
+
+#nodesrc .nshead {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+  padding: 4px 6px 4px 10px;
+  font: 600 12px system-ui, sans-serif;
+}
+
+#nodesrc .nshead button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  color: #666;
+  padding: 0 4px;
+}
+
+#nodesrc .nshead button:hover { color: #000; }
+
+#nodesrc pre {
+  margin: 0;
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px ui-monospace, Menlo, monospace;
+  color: #222;
+}
+
 .wlink {
   color: #1452b8;
   text-decoration: underline;
