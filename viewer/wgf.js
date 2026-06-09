@@ -81,7 +81,20 @@ function expandPackedMoves(root) {
   while (stack.length) {
     const n = stack.pop();
     const seq = n.moveSeq;
-    if (seq && seq.length > 1) {
+    if (seq && seq.length > 1 && n.props.AE) {
+      // A packed node that also clears the board (AE) is a self-contained
+      // diagram — e.g. an endgame sequence shown on a fresh board, numbered
+      // by LB. The moves are often grouped by colour (not in play order),
+      // so don't replay them: place them all at once as setup stones; the
+      // LB labels carry the sequence. (The board shows the whole diagram.)
+      for (const [c, v] of seq) {
+        const prop = c === 'B' ? 'AB' : 'AW';
+        n.props[prop] = (n.props[prop] || []).concat(v);
+      }
+      delete n.props.B;
+      delete n.props.W;
+      delete n.moveSeq;
+    } else if (seq && seq.length > 1) {
       const origChildren = n.children;
       delete n.props.B;
       delete n.props.W;
