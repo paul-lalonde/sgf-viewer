@@ -55,7 +55,15 @@ function parseNode(p) {
       values.push(parseValue(p));
       skipSpace(p);
     }
-    if (key) node.props[key] = (node.props[key] || []).concat(values);
+    if (key) {
+      node.props[key] = (node.props[key] || []).concat(values);
+      // record move order: some .wgf nodes pack a whole opening as many
+      // B[]/W[] in one node, and merging into per-colour arrays loses the
+      // interleaving. moveSeq keeps [colour, point] in file order.
+      if (key === 'B' || key === 'W') {
+        for (const v of values) (node.moveSeq = node.moveSeq || []).push([key, v]);
+      }
+    }
   }
   return node;
 }

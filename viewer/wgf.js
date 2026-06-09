@@ -46,8 +46,79 @@ export function parseWgf(text) {
   for (const r of records) {
     if (!r.props.SZ) r.props.SZ = [fileSize];
     convertSetup(r, parseInt(r.props.SZ[0], 10) || 19);
+    expandPackedMoves(r);
+    rerouteGameLine(r);
   }
   return records;
+}
+
+// Dojo "game test" records pack a whole opening as many B[]/W[] moves in
+// one node. Split such a node into a proper one-move-per-node chain (using
+// the parser's moveSeq to keep order); the comment/links/marks move to the
+// final move, where the test actually begins.
+function expandPackedMoves(root) {
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    const seq = n.moveSeq;
+    if (seq && seq.length > 1) {
+      const origChildren = n.children;
+      delete n.props.B;
+      delete n.props.W;
+      delete n.moveSeq;
+      n.props[seq[0][0]] = [seq[0][1]];
+      let cur = n;
+      for (let i = 1; i < seq.length; i++) {
+        cur.children = [{ props: { [seq[i][0]]: [seq[i][1]] }, parent: cur, children: [] }];
+        cur = cur.children[0];
+      }
+      cur.children = origChildren;
+      for (const c of origChildren) c.parent = cur;
+      for (const k of Object.keys(n.props)) {
+        if (k === 'N' || k === 'SZ' || k === 'B' || k === 'W') continue;
+        cur.props[k] = n.props[k];
+        delete n.props[k];
+      }
+      stack.push(...origChildren);
+    } else {
+      stack.push(...n.children);
+    }
+  }
+}
+
+// In a game test the real game starts at the YF "Click here" target, which
+// the file places after inline reference diagrams (.string defn / .atd —
+// setup nodes that AE-clear the board). Re-link so a move node whose YF
+// target is a move node further down its mainline — separated only by
+// setup nodes — continues straight to it, demoting the reference diagrams
+// to an off-line branch (still reachable via their links).
+function rerouteGameLine(root) {
+  const byName = new Map();
+  for (const st = [root]; st.length;) {
+    const n = st.pop();
+    for (const nm of n.props.N || []) if (!byName.has(nm)) byName.set(nm, n);
+    st.push(...n.children);
+  }
+  const isMoveNode = (n) => 'B' in n.props || 'W' in n.props;
+  const stack = [root];
+  while (stack.length) {
+    const n = stack.pop();
+    const target = byName.get((n.props.YF || [])[0]);
+    if (target && isMoveNode(n) && isMoveNode(target) && n.children[0] !== target) {
+      let d = n.children[0], steps = 0, onlySetup = true;
+      while (d && d !== target && steps < 200) {
+        if (isMoveNode(d)) { onlySetup = false; break; }
+        d = d.children[0];
+        steps++;
+      }
+      if (d === target && onlySetup && steps > 0) {
+        target.parent.children = target.parent.children.filter((c) => c !== target);
+        target.parent = n;
+        n.children = [target, ...n.children.filter((c) => c !== target)];
+      }
+    }
+    stack.push(...n.children);
+  }
 }
 
 // Dojo defines each lesson position with XB/XW (full board state per
