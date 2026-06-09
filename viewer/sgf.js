@@ -46,7 +46,16 @@ function parseNode(p) {
     skipSpace(p);
     let ident = '';
     while (/[A-Za-z]/.test(p.text[p.pos] || '')) ident += p.text[p.pos++];
-    if (!ident) break;
+    if (!ident) {
+      // End the node only at a real boundary. Otherwise tolerate the stray
+      // char and keep scanning: .wgf packs prose with unescaped ] into XS
+      // values, which leaks text here — bailing would drop the real
+      // properties (e.g. a move) that follow it.
+      const ch = p.text[p.pos];
+      if (ch === undefined || ch === ';' || ch === '(' || ch === ')') break;
+      p.pos++;
+      continue;
+    }
     const key = ident.replace(/[a-z]/g, ''); // FF[3] long names: uppercase wins
     skipSpace(p);
     if (p.text[p.pos] !== '[') continue; // ident without value: ignore
