@@ -214,6 +214,13 @@ function refresh() {
   const game = state.game;
   if (!game) return;
   const pos = game.position();
+  // A .wgf quiz node's own marks are its answer key (triangles on the
+  // right points, X/labels on the wrong ones); hide the marks that sit on
+  // answer points so the quiz isn't spoiled.
+  if (state.isWgf && (game.current.props.YN || game.current.props.YA)) {
+    const ans = quizAnswers(game.current);
+    pos.marks = pos.marks.filter((m) => !(String.fromCharCode(97 + m.x, 97 + m.y) in ans));
+  }
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
