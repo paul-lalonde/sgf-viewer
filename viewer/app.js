@@ -496,7 +496,10 @@ function quizResponse(node, score) {
 
 // The board marks carried inside an XS display response (the leading
 // TR[..]/XX[..]/LB[..]… before the prose) — shown as the answer reveal.
-const REVEAL_SHAPE = { TR: 'triangle', XT: 'triangle', CR: 'circle', XU: 'circle', SQ: 'square', MA: 'x' };
+const REVEAL_SHAPE = {
+  TR: 'triangle', XT: 'triangle', CR: 'circle', XU: 'circle', SQ: 'square', MA: 'x',
+  TB: 'territory-b', TW: 'territory-w', // a TB/TW on a stone marks "the marked stone"
+};
 function displayMarks(node, score, size) {
   const xs = (node.props.XS || []).find((e) => e.startsWith(`${score}:`));
   if (!xs) return [];
