@@ -194,10 +194,19 @@ function convertSetup(root, size) {
   }
 }
 
-// Build a file-wide map of quiz feedback by score code (XS "score:text").
-// The reason vocabulary (1, 44, 45, …) is shared across nodes, so many
-// nodes reference a score whose prose lives on another node. Board-markup
-// answers (XS "0:TR[…]") are skipped — they're per-node, not reasons.
+// An XS "display response" value is `score:` then a one-level "display
+// response": leading mark properties (TR[..], XX[..], LB[..], …) followed
+// by the feedback prose. Strip the marks and return just the prose.
+export function xsProse(text) {
+  return text
+    .replace(/^([A-Z]{1,2}(\[[^\][]*\])+)+/, '') // leading mark groups
+    .replace(/_([^_]+)_/g, '$1') // drop hyperlink underscores
+    .trim();
+}
+
+// Build a file-wide map of quiz feedback prose by score code. The reason
+// vocabulary (1, 44, 45, …) is shared across nodes, so many nodes
+// reference a score whose prose lives on another node.
 export function buildResponses(records) {
   const map = {};
   for (const root of records) {
@@ -205,9 +214,10 @@ export function buildResponses(records) {
     while (stack.length) {
       const n = stack.pop();
       for (const e of n.props.XS || []) {
-        const m = /^(\d+):(.*)$/.exec(e);
-        if (!m || /^[A-Z]{2}\[/.test(m[2])) continue;
-        if (!(m[1] in map)) map[m[1]] = m[2].replace(/_([^_]+)_/g, '$1').trim();
+        const m = /^(\d+):([\s\S]*)$/.exec(e);
+        if (!m) continue;
+        const prose = xsProse(m[2]);
+        if (prose && !(m[1] in map)) map[m[1]] = prose;
       }
       stack.push(...n.children);
     }

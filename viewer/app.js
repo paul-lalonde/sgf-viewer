@@ -7,7 +7,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup } from './game
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
-import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText } from './wgf.js';
+import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -419,14 +419,14 @@ function quizAnswers(node) {
   return map;
 }
 
-// The XS response text for a score, or null when it's only board markup
-// (e.g. "TR[qj]") rather than prose.
+// The feedback prose for a score: the node's own XS (its leading display
+// marks stripped), falling back to the file-wide reason map.
 function quizResponse(node, score) {
   for (const e of node.props.XS || []) {
     if (!e.startsWith(`${score}:`)) continue;
-    const text = e.slice(score.length + 1);
-    if (/^[A-Z]{2}\[/.test(text)) break; // board markup, not prose — use the file map
-    return text.replace(/_([^_]+)_/g, '$1').trim(); // drop link underscores
+    const prose = xsProse(e.slice(score.length + 1));
+    if (prose) return prose;
+    break;
   }
   return state.wgfResponses?.[score] ?? null;
 }

@@ -61,7 +61,10 @@ function parseNode(p) {
     if (p.text[p.pos] !== '[') continue; // ident without value: ignore
     const values = [];
     while (p.text[p.pos] === '[') {
-      values.push(parseValue(p));
+      // XS is a .wgf "display response": its value nests other properties'
+      // brackets (TR[..], XX[..], …) before the prose, so read it with
+      // bracket-depth matching rather than stopping at the first ].
+      values.push(key === 'XS' ? parseNestedValue(p) : parseValue(p));
       skipSpace(p);
     }
     if (key) {
@@ -89,6 +92,27 @@ function parseValue(p) {
     } else {
       out += ch;
     }
+  }
+  return out; // unterminated value
+}
+
+// Read a value whose content may nest other [..] brackets (the .wgf XS
+// "display response"). The value ends at the ] that returns bracket depth
+// to 0; interior [..] are kept verbatim.
+function parseNestedValue(p) {
+  p.pos++; // consume opening '['
+  let out = '';
+  let depth = 1;
+  while (p.pos < p.text.length) {
+    const ch = p.text[p.pos++];
+    if (ch === '\\') {
+      const next = p.text[p.pos++];
+      if (next !== '\n') out += next; // escaped newline is a soft break
+      continue;
+    }
+    if (ch === '[') depth++;
+    else if (ch === ']' && --depth === 0) return out;
+    out += ch;
   }
   return out; // unterminated value
 }
