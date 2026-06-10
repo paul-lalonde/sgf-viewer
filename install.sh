@@ -54,7 +54,7 @@ brew_ensure() {  # install a formula only if its command is absent
   if command -v "$cmd" >/dev/null 2>&1; then
     info "$formula already present ($(command -v "$cmd"))"
   else
-    info "Installing $formula…"
+    info "Installing ${formula}…"
     brew install "$formula"
   fi
 }
