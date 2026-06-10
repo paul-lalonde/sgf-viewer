@@ -1296,7 +1296,35 @@ function setDirty(dirty) {
 // URL hash. Restored on reload so an accidental refresh doesn't lose a new
 // game or unsaved edits.
 
-const SESSION_KEY = 'sgf-session';
+// Each browser tab gets its own crash-recovery slot, keyed by a per-tab id
+// kept in sessionStorage (survives reload, unique per tab), so tabs don't
+// overwrite each other's unsaved work. View prefs and pane sizes stay shared
+// (plain keys). A live tab refreshes its slot's timestamp on a heartbeat;
+// a fresh tab may adopt a slot whose timestamp has gone stale (a tab that
+// closed or crashed), which restores work after a browser restart.
+function tabId() {
+  let id = sessionStorage.getItem('sgf-tab');
+  if (!id) {
+    id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+    sessionStorage.setItem('sgf-tab', id);
+  }
+  return id;
+}
+const SESSION_KEY = `sgf-session:${tabId()}`;
+const SESSION_STALE = 30_000; // a slot older than this isn't from a live tab
+
+(() => { // one-time housekeeping: migrate the old single slot; drop ancient ones
+  const legacy = localStorage.getItem('sgf-session');
+  if (legacy && !localStorage.getItem(SESSION_KEY)) localStorage.setItem(SESSION_KEY, legacy);
+  localStorage.removeItem('sgf-session');
+  const cutoff = Date.now() - 7 * 864e5; // 7 days
+  for (const k of Object.keys(localStorage)) {
+    if (!k.startsWith('sgf-session:') || k === SESSION_KEY) continue;
+    let s; try { s = JSON.parse(localStorage.getItem(k)); } catch { s = null; }
+    if (!s || (s.ts || 0) < cutoff) localStorage.removeItem(k);
+  }
+})();
+setInterval(saveSession, 10_000); // heartbeat: keep a live tab's slot fresh
 let persistTimer = null;
 
 function persist() {
@@ -1319,7 +1347,7 @@ async function maybeAutosave() {
   if (state.game.lineLength() <= 10) return;
   if (!state.autosaveName) {
     const ts = new Date().toISOString().replace(/[:T]/g, '-').replace(/\..+$/, '');
-    state.autosaveName = `game-${ts}.sgf`;
+    state.autosaveName = `game-${ts}-${tabId().slice(0, 6)}.sgf`; // per-tab: avoid collisions
   }
   const path = `autosaves/${state.autosaveName}`;
   try {
@@ -1340,6 +1368,7 @@ function saveSession() {
   }
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify({
+      ts: Date.now(), // heartbeat / liveness for cross-tab slot ownership
       sgf: state.game.serialize(),
       path: nodePath(state.game), // child indices root → current node
       dir: state.dir,
@@ -1377,9 +1406,25 @@ function applyPath(game, path) {
 
 // Rebuild a dirty game saved before a reload. Returns true if restored.
 async function restoreSession() {
+  let raw = localStorage.getItem(SESSION_KEY);
+  if (!raw) {
+    // fresh tab with no slot of its own: recover the most recent slot left
+    // by a tab that's no longer live (closed/crashed) and claim it. Live
+    // tabs heartbeat their timestamp, so we never steal an active tab's slot.
+    const orphans = Object.keys(localStorage)
+      .filter((k) => k.startsWith('sgf-session:') && k !== SESSION_KEY)
+      .map((k) => { try { return [k, JSON.parse(localStorage.getItem(k))]; } catch { return null; } })
+      .filter((e) => e?.[1] && Date.now() - (e[1].ts || 0) > SESSION_STALE)
+      .sort((a, b) => (b[1].ts || 0) - (a[1].ts || 0));
+    if (orphans.length) {
+      raw = localStorage.getItem(orphans[0][0]);
+      localStorage.removeItem(orphans[0][0]);
+      localStorage.setItem(SESSION_KEY, raw); // claim it for this tab
+    }
+  }
   let s;
   try {
-    s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    s = JSON.parse(raw || 'null');
   } catch {
     s = null;
   }
