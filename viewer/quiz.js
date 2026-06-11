@@ -89,11 +89,16 @@ export class Quiz {
     };
   }
 
-  // Interpret a board click. isStone: the clicked point holds a stone
-  // (pairs join stones; moves are played on empty points).
+  // Interpret a board click. isStone: the clicked point holds a stone.
+  // Pair endpoints are stones — or the empty edge points that edge
+  // sector lines end on, so any point a pair entry names participates,
+  // and once an endpoint is armed the next click always completes the
+  // attempt. Single/any-of answers still score directly (mixed quizzes).
   click(x, y, isStone) {
     const pt = enc(x, y);
-    if (this.hasPairs && isStone && !this._singleAnswerAt(pt)) {
+    const pairish = this.hasPairs && !this._singleAnswerAt(pt)
+      && (isStone || this.pending !== null || this._pairPoints().has(pt));
+    if (pairish) {
       if (this.pending === null) {
         this.pending = pt;
         return { kind: 'pending' };
@@ -107,6 +112,14 @@ export class Quiz {
       return this._resolvePair(first, pt);
     }
     return this.ordered ? this._resolveOrdered(pt) : this._resolveSingle(pt);
+  }
+
+  _pairPoints() {
+    const set = new Set();
+    for (const e of this.entries) {
+      if (e.type === 'answer' && e.pair) for (const p of e.points) set.add(p);
+    }
+    return set;
   }
 
   _singleAnswerAt(pt) {

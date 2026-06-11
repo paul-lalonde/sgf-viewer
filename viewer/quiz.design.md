@@ -51,17 +51,21 @@ the score itself (`qj:0:2` → show `XS[2]`; `jq:7` → show `XS[7]`).
   point resolves through the `tt` verdict when present (`tt:0` = taking
   sente is correct, and solves a YN); with no `tt`, the result is `miss`.
 - **R5 (endpoint arming).** In a quiz that has pair entries (a pair
-  answer or a `tttt` verdict), a click on a *stone* arms it as an
-  endpoint (`pending`); clicking the armed stone again disarms
-  (`unselect`); a second stone click forms the unordered pair. A stone
-  click that matches a single/any-of answer scores immediately instead of
-  arming (mixed quizzes like `YA[…][kl:0][mkgp:0]`).
+  answer or a `tttt` verdict), a click arms as an endpoint (`pending`)
+  when it is a *stone*, **or a point named by any pair entry** (edge
+  sector lines end on empty edge points — `ofsg:0` runs O14–T13 with
+  nothing on T13), **or when an endpoint is already armed** (the second
+  click of a pair always completes the attempt). Clicking the armed
+  point again disarms (`unselect`). A click that matches a single/any-of
+  answer scores immediately instead of arming (mixed quizzes like
+  `YA[…][kl:0][mkgp:0]`).
 - **R6 (pair lookup).** A formed pair matches a pair entry regardless of
   click order. Score 0 is correct and reports the pair's line; non-zero
   is wrong. An unlisted pair resolves through `tttt`, else `miss`.
-- **R7 (empty points never arm).** A click on an empty intersection goes
-  through single lookup even in a pair quiz (pairs join stones; moves are
-  played on empty points).
+- **R7 (unlisted empty points don't arm).** With no endpoint armed, a
+  click on an empty intersection that no pair entry names goes through
+  single lookup even in a pair quiz (moves are played on empty points;
+  only R5's cases participate in pair selection).
 - **R8 (find-all).** In `YA`, each correct answer entry counts once
   toward the total (`gcgd=0` is one slot satisfiable by either point;
   a pair is one slot). Re-finding a satisfied slot returns `again` and

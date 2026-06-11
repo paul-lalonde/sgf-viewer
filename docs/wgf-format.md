@@ -269,11 +269,14 @@ display response of marks + prose. A node usually defines a bespoke `XS[0]`
 **file-wide shared vocabulary** for the wrong-answer codes (`44`/`45`/…),
 which are defined as prose on whichever nodes introduce them.
 
-**Pairs vs. moves.** Pair endpoints are always stones (sector lines join
-stones), while single answers are moves on empty points — so a click on a
-stone selects an endpoint and a click on an empty point answers as a move.
-Mixed quizzes rely on this: *"Click on the relevant two sector lines AND
-click on the appropriate running move"* (`YA[tt:1][tttt:1][mkgp:0][coei:0][kl:0]`).
+**Pairs vs. moves.** Pair endpoints are usually stones (sector lines join
+stones) — but **edge sector lines end on empty edge points** (19 of the
+104 pair entries; `ofsg:0` runs O14–T13 with nothing on T13), so a click
+selects an endpoint when it's a stone *or* a point some pair entry names,
+and once one endpoint is armed the next click completes the attempt.
+Other empty-point clicks answer as moves. Mixed quizzes rely on this:
+*"Click on the relevant two sector lines AND click on the appropriate
+running move"* (`YA[tt:1][tttt:1][mkgp:0][coei:0][kl:0]`).
 
 **Staged quizzes (`YO`/`YS`).** The score-`0` entries are consumed in file
 order — each is the one required answer of its stage, and its `resp` key

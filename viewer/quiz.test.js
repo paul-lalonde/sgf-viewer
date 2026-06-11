@@ -92,6 +92,26 @@ test('[BEHAVIOR] R5: a stone click matching a single answer scores instead of ar
   assert.equal(r.solved, false);
 });
 
+test('[BEHAVIOR] R5: an empty point named by a pair entry arms (edge sector lines)', () => {
+  // Sector.wgf node 299: the line O14–T13 ends on the EMPTY edge point sg
+  const q = quiz('YA', ['ofsg:0', 'tttt:1', 'ldqk:2']);
+  assert.equal(click(q, 'of', true).kind, 'pending'); // the stone end
+  const r = click(q, 'sg', false); // the empty edge end
+  assert.equal(r.kind, 'correct');
+  // reverse order: the empty end can be armed first, too
+  const q2 = quiz('YA', ['ofsg:0', 'tttt:1', 'ldqk:2']);
+  assert.equal(click(q2, 'sg', false).kind, 'pending');
+  assert.equal(click(q2, 'of', true).kind, 'correct');
+});
+
+test('[BEHAVIOR] R5: with an endpoint armed, any second click completes the pair', () => {
+  const q = quiz('YN', ['tttt:2', 'ajhj:0']);
+  click(q, 'aj', true);
+  const r = click(q, 'cc', false); // unlisted empty point as the second end
+  assert.equal(r.kind, 'wrong'); // scored by tttt, not "not an answer"
+  assert.equal(r.score, '2');
+});
+
 test('[BEHAVIOR] R6: an unlisted pair resolves via tttt', () => {
   const q = quiz('YN', ['tttt:2', 'ajhj:0', 'aiei:0']);
   click(q, 'aj', true);
