@@ -5,7 +5,7 @@ import { Board } from './board.js';
 import { Game, isMove, leafVerdict, gtpPoint, moveOf, parsePoint } from './game.js';
 
 import { buildIndex, matchAll as matchJosekiAll, localizeComment, normalizeLabelRefs, childStone, childLetter, nodeMarks } from './joseki.js';
-import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
+import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse, xcSplit } from './wgf.js';
 import { Quiz, isQuiz } from './quiz.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
@@ -216,14 +216,13 @@ function updateGhost() {
   if (state.isWgf && state.tool === 'play') board.canvas.style.cursor = 'pointer';
 }
 
-// Dojo encodes a multi-board "n-up" layout in XC: the tens digit is the
-// split (2x = side-by-side halves, 4x/6x = 2×2 quadrants), achieved by
-// omitting the centre column and/or row line.
+// Dojo encodes a multi-board "n-up" layout in XC (stacked halves or
+// thirds, side-by-side, quadrants, six-up — the value table lives in
+// wgf.js xcSplit), drawn by omitting the separating grid line(s).
 function splitFor(node) {
   if (!state.isWgf) return null;
-  const xc = parseInt((node.props.XC || [])[0], 10);
-  const tens = Number.isFinite(xc) ? Math.floor(xc / 10) : 0;
-  return tens >= 2 ? { col: true, row: tens >= 4 } : null;
+  const xc = (node.props.XC || [])[0];
+  return xc === undefined ? null : xcSplit(xc, state.game.size);
 }
 
 // Board annotations carried by a node: a shaded region (TT), lines and

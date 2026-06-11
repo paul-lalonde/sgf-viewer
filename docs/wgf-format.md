@@ -202,27 +202,35 @@ lines are broken… and don't count."*
 > slides, but only `AB`/`AW` (no clear) when the node also has a move.
 
 ### 5.2 `XC` — board configuration / multi-board layout
-`XC` is a small integer. Its **tens digit** selects how the 19×19 grid is
-split into independent sub-boards by omitting centre line(s):
+`XC` is a small integer naming a **fixed layout table**, not a digit
+formula (an earlier "tens digit" reading was an artifact of which values
+got analysed). Decoded by cross-tabulating every XC node's prose words
+("TOP:", "MIDDLE:", "LEFT:", "TOP RIGHT:") with the bands its stones
+occupy:
 
-| tens | layout | lines omitted |
+| XC | layout | lines omitted |
 |---|---|---|
-| 0 (`2`,`3`,`6`,…) | single full board | none |
-| 2 (`20`,`22`…) | two boards side-by-side | centre **column** (K) |
-| 4 (`40`–`45`) | 2×2 quadrants | centre **column and row** (K & 10) |
-| 6 (`60`) | inferred 2×3 | (inferred: two columns + one row) |
+| `2`, `23` | TOP / BOTTOM stacked | centre **row** (10) |
+| `3` | TOP / MIDDLE / BOTTOM | rows at the thirds (7 & 13) |
+| `20`, `22`, `24` | LEFT / RIGHT side-by-side | centre **column** (K) |
+| `40`–`45` | 2×2 quadrants | centre column and row |
+| `6`, `60` | 2×3 six-up | centre row + column thirds (G & N) |
+| `32` | TOP pair over a full-width BOTTOM | quad cuts, trimmed by stones |
 
-Evidence: across 121 `XC[40]` nodes **no stone ever sits on the centre
-column or row** (vs. ~20 % on un-split nodes); `XC[20]` nodes avoid the
-centre column only. The **units digit** has no detected effect on layout,
-quadrant count, quiz role, or geometry — it appears to be internal
-bookkeeping. **(inferred / open)**
+Evidence: 88 of 96 `XC[2]` nodes say TOP:/BOTTOM: and only one touches
+the centre row (68 use the centre *column*, so it can't be a column
+split); all 17 `XC[3]` nodes band their stones in rows 3–5/10–12/16–18
+and say TOP:/MIDDLE:/BOTTOM:; `XC[6]`/`XC[60]` say TOP LEFT/MIDDLE/RIGHT
+over BOTTOM LEFT/MIDDLE/RIGHT with stones banded in column thirds. What
+distinguishes `2`/`23`, or `20`/`22`/`24`, remains internal bookkeeping.
+**(open)**
 
-> **Viewer:** `splitFor()` reads the tens digit; the board renderer breaks
-> the perpendicular grid lines at the omitted centre line(s), drops their
-> coordinate labels and star points. Empty sub-boards are still drawn (Dojo
-> does not flag "no bottom"). `XC[32]` (3-up) and `XC[60]` (6-up) render as a
-> plain quad today.
+> **Viewer:** the table lives in `xcSplit()`; the board renderer omits the
+> listed grid lines, breaking the perpendicular lines at each gap and
+> dropping the omitted lines' coordinate labels and the star points. A cut
+> that would run through an actual stone drops out — which also renders
+> `XC[32]`'s full-width bottom correctly. Empty sub-boards are still drawn
+> (Dojo does not flag "no bottom").
 
 ### 5.3 Packed sequences & numbered diagrams
 A sequence may be packed into one node (§1.4) and the points labelled

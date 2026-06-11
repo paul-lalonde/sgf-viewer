@@ -194,6 +194,38 @@ function convertSetup(root, size) {
   }
 }
 
+// Dojo's XC encodes a multi-board "n-up" layout, drawn by omitting grid
+// line(s) so the board splits into independent sub-boards. The values
+// are a fixed table, decoded from the prose ("TOP:", "MIDDLE:", "LEFT:")
+// and the stone bands of every XC node in the corpus:
+//
+//   2, 23      TOP/BOTTOM            omit the centre row
+//   3          TOP/MIDDLE/BOTTOM     omit rows at the thirds
+//   20, 22, 24 LEFT/RIGHT            omit the centre column
+//   40..45     2×2 quadrants         omit centre row and column
+//   6, 60      2×3 six-up            omit centre row + column thirds
+//   32         TOP pair over a full-width BOTTOM — request the quad cuts;
+//              the renderer drops any cut that crosses a stone, which
+//              trims this to what each diagram actually uses.
+//
+// Returns {rows: [...], cols: [...]} of grid lines to omit, or null.
+export function xcSplit(value, size = 19) {
+  const xc = parseInt(value, 10);
+  if (!Number.isFinite(xc)) return null;
+  const mid = (size - 1) / 2;
+  if (!Number.isInteger(mid)) return null;
+  const thirds = size === 19 ? [6, 12] : null; // observed only on 19×19
+  switch (xc) {
+    case 2: case 23: return { rows: [mid], cols: [] };
+    case 3: return thirds && { rows: thirds, cols: [] };
+    case 20: case 22: case 24: return { rows: [], cols: [mid] };
+    case 6: case 60: return thirds && { rows: [mid], cols: thirds };
+    case 32: case 40: case 41: case 42: case 43: case 44: case 45:
+      return { rows: [mid], cols: [mid] };
+    default: return null;
+  }
+}
+
 // An XS "display response" value is `score:` then a one-level "display
 // response": leading mark properties (TR[..], XX[..], LB[..], …) followed
 // by the feedback prose. Strip the marks and return just the prose.

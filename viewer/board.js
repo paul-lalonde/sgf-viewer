@@ -23,8 +23,8 @@ export class Board {
     this.regions = null; // [{x,y}] shaded region (Dojo TT)
     this.lines = null; // [{x1,y1,x2,y2,arrow}] lines/arrows (LN/LR/LS)
     this.wgfGhosts = null; // [{x,y,color,label}] continuation stones (YB/YW)
-    this.split = null; // {col,row}: Dojo "n-up" — omit centre line(s) to
-                       // split the board into independent quadrant boards
+    this.split = null; // {rows:[..], cols:[..]}: Dojo "n-up" — omit grid
+                       // line(s) to split the board into independent sub-boards
     this.setSize(size);
     canvas.addEventListener('click', (e) => this._handleClick(e));
     canvas.addEventListener('mousemove', (e) => this._handleMove(e));
@@ -140,29 +140,27 @@ export class Board {
   _sy(m, y) { return m.oy + (y - m.y0) * m.cell; }
   _visible(m, x, y) { return x >= m.x0 && x <= m.x1 && y >= m.y0 && y <= m.y1; }
 
-  // Dojo "n-up" split: the board is shown as independent quadrant boards
-  // by omitting the centre column and/or row line. Returns {c, col, row}
-  // (c = centre index) or null. Disabled when cropped (VW), when the centre
-  // isn't an integer line, or when a stone actually sits on a centre line.
+  // Dojo "n-up" split: the board is shown as independent sub-boards by
+  // omitting grid lines. Returns {rows, cols} of omitted line indices,
+  // or null. Disabled when cropped (VW); a cut that would run through
+  // an actual stone drops out (it belongs to a diagram that uses that
+  // line — e.g. a full-width board below a split pair).
   _splitAt() {
     if (!this.split || this.view) return null;
-    const c = (this.size - 1) / 2;
-    if (!Number.isInteger(c)) return null;
     const g = this.position?.grid;
-    let col = !!this.split.col;
-    let row = !!this.split.row;
-    if (g) {
-      if (col && g.some((rw) => rw[c] !== EMPTY)) col = false;
-      if (row && (g[c] || []).some((v) => v !== EMPTY)) row = false;
-    }
-    return col || row ? { c, col, row } : null;
+    const inRange = (i) => Number.isInteger(i) && i > 0 && i < this.size - 1;
+    const rows = (this.split.rows || []).filter((r) =>
+      inRange(r) && !(g && g[r].some((v) => v !== EMPTY)));
+    const cols = (this.split.cols || []).filter((c) =>
+      inRange(c) && !(g && g.some((rw) => rw[c] !== EMPTY)));
+    return rows.length || cols.length ? { rows, cols } : null;
   }
 
-  // Show/hide the n-up split. split: {col,row} or null.
+  // Show/hide the n-up split. split: {rows:[..], cols:[..]} or null.
   setSplit(split) {
-    const s = split && (split.col || split.row)
-      ? { col: !!split.col, row: !!split.row } : null;
-    const key = s ? `${s.col}/${s.row}` : '';
+    const s = split && (split.rows?.length || split.cols?.length)
+      ? { rows: split.rows || [], cols: split.cols || [] } : null;
+    const key = s ? `${s.rows.join()}/${s.cols.join()}` : '';
     if (key === (this._splitKey || '')) return;
     this._splitKey = key;
     this.split = s;
@@ -205,31 +203,36 @@ export class Board {
 
   _drawGrid(ctx, m) {
     const sp = this._splitAt();
-    const left = this._sx(m, m.x0), right = this._sx(m, m.x1);
-    const top = this._sy(m, m.y0), bottom = this._sy(m, m.y1);
+    // visible runs of a line, broken at each omitted perpendicular line
+    const segs = (lo, hi, cuts) => {
+      const out = [];
+      let a = lo;
+      for (const c of [...(cuts || [])].sort((p, q) => p - q)) {
+        if (c - 1 >= a) out.push([a, c - 1]);
+        a = Math.max(a, c + 1);
+      }
+      if (a <= hi) out.push([a, hi]);
+      return out;
+    };
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    // horizontal lines, broken at the column gap so quadrants separate
+    // horizontal lines, broken at the column gap(s) so sub-boards separate
     for (let y = m.y0; y <= m.y1; y++) {
-      if (sp?.row && y === sp.c) continue;
+      if (sp?.rows.includes(y)) continue;
       const py = this._sy(m, y);
-      if (sp?.col) {
-        ctx.moveTo(left, py); ctx.lineTo(this._sx(m, sp.c - 1), py);
-        ctx.moveTo(this._sx(m, sp.c + 1), py); ctx.lineTo(right, py);
-      } else {
-        ctx.moveTo(left, py); ctx.lineTo(right, py);
+      for (const [a, b] of segs(m.x0, m.x1, sp?.cols)) {
+        ctx.moveTo(this._sx(m, a), py);
+        ctx.lineTo(this._sx(m, b), py);
       }
     }
-    // vertical lines, broken at the row gap
+    // vertical lines, broken at the row gap(s)
     for (let x = m.x0; x <= m.x1; x++) {
-      if (sp?.col && x === sp.c) continue;
+      if (sp?.cols.includes(x)) continue;
       const px = this._sx(m, x);
-      if (sp?.row) {
-        ctx.moveTo(px, top); ctx.lineTo(px, this._sy(m, sp.c - 1));
-        ctx.moveTo(px, this._sy(m, sp.c + 1)); ctx.lineTo(px, bottom);
-      } else {
-        ctx.moveTo(px, top); ctx.lineTo(px, bottom);
+      for (const [a, b] of segs(m.y0, m.y1, sp?.rows)) {
+        ctx.moveTo(px, this._sy(m, a));
+        ctx.lineTo(px, this._sy(m, b));
       }
     }
     ctx.stroke();
@@ -245,13 +248,13 @@ export class Board {
     ctx.textBaseline = 'middle';
     const sp = this._splitAt();
     for (let x = m.x0; x <= m.x1; x++) {
-      if (sp?.col && x === sp.c) continue; // no line here, no label
+      if (sp?.cols.includes(x)) continue; // no line here, no label
       const px = this._sx(m, x);
       ctx.fillText(COLS[x], px, top - cell * 0.9);
       ctx.fillText(COLS[x], px, bottom + cell * 0.9);
     }
     for (let y = m.y0; y <= m.y1; y++) {
-      if (sp?.row && y === sp.c) continue;
+      if (sp?.rows.includes(y)) continue;
       const py = this._sy(m, y);
       const row = String(this.size - y);
       ctx.fillText(row, left - cell * 0.9, py);
