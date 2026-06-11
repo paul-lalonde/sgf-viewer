@@ -28,13 +28,12 @@ test('[BEHAVIOR] R1/R3: single entries score by point, resp defaults to score', 
 
 test('[BEHAVIOR] R1: upper-case typo points fold (OK -> ok) and stay answerable', () => {
   const q = quiz('YN', ['tt:1', 'OK:0', 'pl:11']);
-  assert.ok(q.answerPoints().has('ok'));
   assert.equal(click(q, 'ok').kind, 'correct');
 });
 
-test('[BEHAVIOR] R2: answerPoints covers singles, any-of members, pair endpoints', () => {
+test('[BEHAVIOR] R2: no point-hiding API — quiz marks are question furniture', () => {
   const q = quiz('YA', ['tt:1', 'tttt:1', 'mkgp:0', 'coei:0', 'kl:0']);
-  assert.deepEqual([...q.answerPoints()].sort(), ['co', 'ei', 'gp', 'kl', 'mk']);
+  assert.equal(q.answerPoints, undefined);
 });
 
 test('[BEHAVIOR] R3: any-of — each member point scores alone (YN[imhl=0])', () => {

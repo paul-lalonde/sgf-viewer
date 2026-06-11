@@ -79,16 +79,6 @@ export class Quiz {
     this._foundLines = [];
   }
 
-  // Every board point named by an answer entry (the caller hides the
-  // node's answer-key marks on these while the quiz is unsolved).
-  answerPoints() {
-    const set = new Set();
-    for (const e of this.entries) {
-      if (e.type === 'answer') for (const p of e.points) set.add(p);
-    }
-    return set;
-  }
-
   // Found answers and the armed endpoint, for board display.
   foundOverlay() {
     const at = (p) => ({ x: p.charCodeAt(0) - 97, y: p.charCodeAt(1) - 97 });

@@ -106,7 +106,9 @@ and the "real" continuation is named by a `YF` ("Next"/"Click here") target
 > via their links). Pure-setup lesson records (no moves) are shown as a flat
 > "slide outline" instead of a tree. A `.wgf` is a *guided playout*, so a
 > plain board click **advances** to the next position (Dojo's "just click")
-> rather than playing a stone — it never creates a variation. On a quiz node
+> rather than playing a stone — it never creates a variation; clicking a
+> point where a variation's move is played enters that variation (Dojo:
+> "click directly on a marked variation location"). On a quiz node
 > the click answers the quiz; an explicitly chosen mark tool still annotates.
 
 ---
@@ -276,16 +278,21 @@ answer are stones placed on the board before the next stage — the quiz
 plays out the sequence (`hl:0:2 hl@b hm@w` = "right; Black hl is played,
 White answers hm — now what?").
 
+**Quiz-node marks are the question, not the key.** A quiz node's own
+`LB`/`TR`/`TB` marks are clickable choices and subject stones ("click on
+the letter G", "the marked stone"); the answer-key marks live in the `XS`
+display responses and on the separate `…ANSWERS` nodes.
+
 > **Viewer:** `quiz.js` implements exactly this grammar (see
 > `quiz.design.md`); `CLAUDE.scripts/verify-quiz-solvability.mjs` replays
-> every quiz in the corpus to solved. The node's own answer-key marks are
-> **hidden** while the quiz is unanswered, so it isn't spoiled. A non-zero
-> score shows the `XS` reason (the node's own prose, else the file-wide
-> reason map) and the player retries. Find-all progress shows as green
-> discs/lines; an armed endpoint shows as a green ring. Solving reveals
-> the answer — un-hides the answer-key marks, draws the solving `XS`
-> display marks **and lines** — then waits for a click to continue (Dojo:
-> "click to get to the next turn"), rather than auto-advancing.
+> every quiz in the corpus to solved. The node's marks stay visible while
+> unsolved (an earlier version hid them, which blinded the letter-choice
+> quizzes). A non-zero score shows the `XS` reason (the node's own prose,
+> else the file-wide reason map) and the player retries. Find-all progress
+> shows as green discs/lines; an armed endpoint shows as a green ring.
+> Solving draws the solving `XS` display marks **and lines** — then waits
+> for a click to continue (Dojo: "click to get to the next turn"), rather
+> than auto-advancing.
 
 Observed reason codes (Contact/Sector): `1` continue contact · `2`/`3` don't
 take/butt · `5` both stable, take sente · `44` you're stable, take sente ·

@@ -271,9 +271,9 @@ function refresh() {
     feedback('', ''); // erase the quiz verdict (e.g. the green "✓ Yes")
   }
   const pos = game.position();
-  // A .wgf quiz node's own marks are its answer key; hide the marks on
-  // answer points while it's unsolved so the quiz isn't spoiled. Once
-  // solved, reveal them and add the answer's XS display marks.
+  // A .wgf quiz node's own marks stay visible — they are the question
+  // (clickable letters, "the marked stone"); the answer key lives in the
+  // XS display response, whose marks and lines draw only on the reveal.
   let revealLines = null;
   if (state.isWgf && isQuiz(game.current)) {
     const quiz = ensureQuiz(game.current);
@@ -281,9 +281,6 @@ function refresh() {
       const reveal = displayMarks(game.current, quiz.revealKey, game.size);
       pos.marks = pos.marks.concat(reveal.marks);
       revealLines = reveal.lines;
-    } else {
-      const ans = quiz.answerPoints();
-      pos.marks = pos.marks.filter((m) => !ans.has(String.fromCharCode(97 + m.x, 97 + m.y)));
     }
     // stones placed by consumed sequence answers (YS guided playouts)
     for (const p of quiz.placed) pos.grid[p.y][p.x] = p.color === 'B' ? BLACK : WHITE;
@@ -414,16 +411,32 @@ function renderWgfComment(el, node) {
   }
 }
 
+// A node's YG[] targets keyed by 1-based link position. An entry may
+// carry its position explicitly ("2:.Neg1"); a bare entry takes the
+// next position after the last one assigned.
+function ygTargets(node) {
+  const out = new Map();
+  let pos = 0;
+  for (const e of node.props.YG || []) {
+    const m = /^(\d+):([\s\S]*)$/.exec(e);
+    if (m) pos = +m[1];
+    else pos++;
+    out.set(pos, m ? m[2] : e);
+  }
+  return out;
+}
+
 // Follow the k-th link in the current node's comment, via its YG[]
-// targets (positional), with YF as the fallback / "Next".
+// targets, with YF as the fallback / "Next" (YF may itself be a
+// cross-file target, e.g. basic.wgf's B:Intro.wgf:.Introduction).
 function followWgfLink(k, text) {
   const node = state.game.current;
-  const yg = node.props.YG || [];
+  const yg = ygTargets(node).get(k + 1);
   const yf = (node.props.YF || [])[0];
   let target = null;
-  if (yg[k]) target = parseLinkTarget(yg[k]); // explicit target wins
+  if (yg) target = parseLinkTarget(yg); // explicit target wins
   else if (findWgfName(text.trim())) target = { name: text.trim() }; // link text is a node name
-  else if (yf) target = { name: yf }; // e.g. "Next"
+  else if (yf) target = yf.includes(':') ? parseLinkTarget(yf) : { name: yf }; // e.g. "Next"
   else if (node.children.length) target = { next: true }; // "continue" link → next slide
   if (target) navigateWgf(target);
 }
@@ -680,9 +693,13 @@ function onBoardClick(x, y) {
   }
   // A .wgf is a guided playout: a plain click steps to the next position
   // (Dojo's "just click"), it does not place a stone or start a variation.
+  // Clicking a point where a variation's move is played enters that
+  // variation (Dojo: "click directly on a marked variation location").
   // (An explicitly chosen mark tool still annotates — see below.)
   if (state.isWgf && state.tool === 'play') {
-    if (game.next()) refresh();
+    const child = game.childAt(x, y);
+    if (child) game.goTo(child);
+    if (child || game.next()) refresh();
     return;
   }
   if (state.tool === 'play') {
@@ -1565,6 +1582,7 @@ setFilesHidden(localStorage.getItem('sgf-nofiles') === '1');
 const KEYS = {
   ArrowLeft: () => state.game?.prev(),
   ArrowRight: () => state.game?.next(),
+  ' ': () => state.game?.next(), // Dojo: "SPACE bar: same as the > button"
   ArrowUp: () => state.game?.variation(-1),
   ArrowDown: () => state.game?.variation(1),
   Home: () => state.game?.toStart(),

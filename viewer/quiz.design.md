@@ -36,10 +36,15 @@ the score itself (`qj:0:2` → show `XS[2]`; `jq:7` → show `XS[7]`).
 - **R1 (parse).** Entries parse per the table above. Points are
   normalized through `parsePoint` (upper-case typos fold; `OK:0` is an
   answerable entry at `ok`). Unparseable entries are ignored.
-- **R2 (answer points).** `answerPoints()` returns the set of every board
-  point named by an answer entry (singles, any-of members, pair
-  endpoints) — used by the caller to hide answer-key marks while
-  unsolved.
+- **R2 (marks are not hidden).** *(Inverted from the original design.)*
+  A quiz node's own marks must stay visible while the quiz is unsolved:
+  they are question furniture, not an answer key — `LB` letters are the
+  clickable choices ("click on the letter G", "click on X to take
+  sente"), `TR`/`TB` mark the stones the prose calls "triangle"/"the
+  marked stone" (GROUP SECTOR LINE TEST 2 even asks you to *click* the
+  marked stone). The answer-key marks live in the `XS` display responses
+  (drawn only on reveal) and on separate `…ANSWERS` nodes. This module
+  therefore exposes no point-hiding API.
 - **R3 (single lookup).** A click on a point named by a single or any-of
   entry resolves to that entry's score/resp. Score 0 is correct.
 - **R4 (off-list singles).** In `YN`/`YA`, a single click on no listed
@@ -97,7 +102,6 @@ export class Quiz {
   hasPairs        // quiz contains pair answers or a tttt verdict
   placed          // [{x, y, color}] — stones placed by consumed answers
   revealKey       // XS key for the answer reveal ('0' until solved)
-  answerPoints()  // Set<'xy'> of all answer-entry points
   // isStone: whether the clicked point currently holds a stone
   click(x, y, isStone) // -> result
   foundOverlay()  // {points: [{x,y}], lines: [{x1,y1,x2,y2}], pending: {x,y}|null}

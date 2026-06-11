@@ -113,6 +113,26 @@ def main():
         with open("/tmp/sgf-quiz-pairs.png", "wb") as f:
             f.write(base64.b64decode(shot))
         print("screenshot: /tmp/sgf-quiz-pairs.png")
+
+        # GROUSE TEST: a letter-choice quiz ("click the letter G if there
+        # is a grouse") — its G/N labels must be visible and clickable.
+        hit = js("""
+          (() => {
+            for (const el of document.querySelectorAll('#tree .oline, #tree .move, #tree .seg')) {
+              if (el.textContent.includes('GROUSE TEST') && !el.textContent.includes('ANSWERS')) {
+                el.click(); return el.textContent.slice(0, 40);
+              }
+            }
+            return null;
+          })()
+        """)
+        time.sleep(0.3)
+        print("slide:", hit)
+        print("click letter:  ", click("aa"))
+        shot = cmd("Page.captureScreenshot")["data"]
+        with open("/tmp/sgf-quiz-grouse.png", "wb") as f:
+            f.write(base64.b64decode(shot))
+        print("screenshot: /tmp/sgf-quiz-grouse.png")
         ws.close()
     finally:
         proc.terminate()
