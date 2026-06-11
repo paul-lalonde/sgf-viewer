@@ -283,10 +283,17 @@ function refresh() {
     for (const p of quiz.placed) pos.grid[p.y][p.x] = p.color === 'B' ? BLACK : WHITE;
     board.setQuizFound(quiz.foundOverlay());
   }
+  const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
+  // a YB/YW ghost stone carries its LB number itself — drop the plain
+  // label mark at that point, or the number draws twice (a big patched
+  // label showing through the translucent stone)
+  if (ov.ghosts) {
+    const at = new Set(ov.ghosts.map((g) => `${g.x},${g.y}`));
+    pos.marks = pos.marks.filter((m) => !(m.type === 'label' && at.has(`${m.x},${m.y}`)));
+  }
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
-  const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
   board.setRegions(ov.regions);
   board.setLines(revealLines ? (ov.lines || []).concat(revealLines) : ov.lines);
   board.setWgfGhosts(ov.ghosts);
