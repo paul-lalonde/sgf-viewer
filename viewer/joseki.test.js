@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildIndex, matchAll, makeTransform, localizeComment,
-  childStone, childLetter, freeLetters, nodeMarks,
+  childStone, childLetter, nodeMarks, normalizeLabelRefs,
 } from './joseki.js';
 import { BLACK, WHITE, EMPTY, emptyGrid } from './colors.js';
 
@@ -167,13 +167,23 @@ test('[BEHAVIOR] nodeMarks maps through the transform', () => {
   assert.deepEqual(marks, [{ x, y, type: 'square' }]);
 });
 
-test('[BEHAVIOR] freeLetters never hands out a letter the node\'s labels use', () => {
-  const node = mknode({ LB: ['qk:A', 'mc:F', 'me:B', 'lc:C', 'of:D', 'rf:E', 'pf:G'] });
-  const next = freeLetters(node);
-  assert.equal(next(), 'h'); // a–g are the prose's vocabulary
-  assert.equal(next(), 'i');
-  const bare = freeLetters(mknode({}));
-  assert.equal(bare(), 'a');
+test('[BEHAVIOR] quoted label refs take the case of the node\'s actual labels', () => {
+  const node = mknode({ LB: ['qk:A', 'me:B', 'rf:e'] });
+  assert.equal(
+    normalizeLabelRefs("extend to 'a', aim on 'b', or jump to 'e'", node),
+    "extend to 'A', aim on 'B', or jump to 'e'",
+  );
+  // upper-case quoted ref to a lower-case label normalizes down, too
+  assert.equal(normalizeLabelRefs("block at 'E'", node), "block at 'e'");
+});
+
+test('[BEHAVIOR] label refs with no matching label, or ambiguous case, are untouched', () => {
+  const none = mknode({ LB: ['qk:A'] });
+  assert.equal(normalizeLabelRefs("the 'x' files", none), "the 'x' files");
+  const both = mknode({ LB: ['qk:A', 'me:a'] }); // A and a both on the node
+  assert.equal(normalizeLabelRefs("play 'a'", both), "play 'a'");
+  const digits = mknode({ LB: ['qk:12'] }); // multi-char labels don't participate
+  assert.equal(normalizeLabelRefs("move '1'", digits), "move '1'");
 });
 
 test('[BEHAVIOR] childLetter reads the parent\'s label for the child\'s stone', () => {

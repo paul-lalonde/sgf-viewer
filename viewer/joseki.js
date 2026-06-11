@@ -273,23 +273,24 @@ export function childLetter(parent, child, size) {
   return null;
 }
 
-// Letters for unlabelled choices that can't be mistaken for the
-// dictionary's own vocabulary: skips every letter the node's LB labels
-// use (the prose's 'a'..'g'), so a fallback letter never collides with
-// a letter the comment is talking about.
-export function freeLetters(node) {
-  const used = new Set();
+// Kogo's prose quotes label letters in lowercase — 'a' — regardless of
+// the case the board label actually uses (the dictionary's LB letters
+// are half upper, half lower: 6.8k vs 7.6k). Rewrite quoted
+// single-letter references to the node's stored label text, so the
+// caption and the board always agree on case.
+export function normalizeLabelRefs(text, node) {
+  const labels = new Map(); // lowercase letter -> stored label text
   for (const v of node.props.LB || []) {
     const i = v.indexOf(':');
-    if (i >= 0) used.add(v.slice(i + 1).trim().toLowerCase());
+    const t = i >= 0 ? v.slice(i + 1) : '';
+    if (!/^[A-Za-z]$/.test(t)) continue;
+    const k = t.toLowerCase();
+    labels.set(k, labels.has(k) && labels.get(k) !== t ? null : t); // both cases present: ambiguous
   }
-  let next = 0;
-  return () => {
-    while (next < 26 && used.has(String.fromCharCode(97 + next))) next++;
-    const letter = String.fromCharCode(97 + Math.min(next, 25));
-    used.add(letter);
-    return letter;
-  };
+  return text.replace(/'([A-Za-z])'/g, (m, l) => {
+    const t = labels.get(l.toLowerCase());
+    return t ? `'${t}'` : m;
+  });
 }
 
 // Marks the dictionary draws on a matched node, mapped onto your board:

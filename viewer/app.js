@@ -4,7 +4,7 @@
 import { Board } from './board.js';
 import { Game, isMove, leafVerdict, gtpPoint, moveOf, parsePoint } from './game.js';
 
-import { buildIndex, matchAll as matchJosekiAll, localizeComment, childStone, childLetter, freeLetters, nodeMarks } from './joseki.js';
+import { buildIndex, matchAll as matchJosekiAll, localizeComment, normalizeLabelRefs, childStone, childLetter, nodeMarks } from './joseki.js';
 import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
 import { Quiz, isQuiz } from './quiz.js';
 
@@ -1125,15 +1125,19 @@ function renderJosekiNav() {
     ghosts.push({ x, y, color: T.col(st.color), label: String(i + 1) });
   });
   const choices = [];
-  const fallback = freeLetters(node); // never collides with the prose's letters
   node.children.forEach((c) => {
     const st = childStone(c, size);
     if (!st) return;
     const [x, y] = toXY(st.x, st.y);
-    const letter = childLetter(node, c, size) || fallback();
+    // only the dictionary's own letter — an invented one would read as
+    // part of the comment's vocabulary. An unlabelled what-if stone
+    // shows '+', an unlabelled continuation stays a plain ghost.
+    const letter = childLetter(node, c, size);
     choices.push({ child: c, letter, x, y, color: T.col(st.color), setup: st.setup });
   });
-  choices.forEach((ch) => ghosts.push({ x: ch.x, y: ch.y, color: ch.color, label: ch.letter }));
+  choices.forEach((ch) => ghosts.push({
+    x: ch.x, y: ch.y, color: ch.color, label: ch.letter || (ch.setup ? '+' : ''),
+  }));
   board.setJosekiGhosts(ghosts.length ? ghosts : null);
   // the node's own marks and letter labels; choice points show their
   // letter on the ghost stone already
@@ -1147,11 +1151,12 @@ function renderJosekiNav() {
   // swap colours when the match is colour-swapped, rotate direction words
   // by the geometry
   let commentText = node.props.C ? node.props.C.join('\n') : '';
+  commentText = normalizeLabelRefs(commentText, node); // 'a' → 'A' when the label is A
   commentText = localizeComment(commentText, T, T.swap);
   const comment = commentText ? `<div class="jcomment">${escapeHtml(commentText)}</div>` : '';
   const choiceChips = choices.length
     ? '<div class="jcont">' +
-      choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter}·${coord(ch.x, ch.y, size)}${ch.setup ? ' +stone' : ''}</span>`).join('') +
+      choices.map((ch, i) => `<span class="jmove jchoice" data-i="${i}">${ch.letter ? `${escapeHtml(ch.letter)}·` : ''}${coord(ch.x, ch.y, size)}${ch.setup ? ' +stone' : ''}</span>`).join('') +
       '</div>'
     : '<div class="jmsg">(end of this joseki line)</div>';
   const nav = (node !== base ? '<span class="jmove jback">↑ back</span>' : '') +
@@ -1179,10 +1184,12 @@ function renderJosekiNav() {
   );
 }
 
-// A match candidate's dropdown label: its comment's first line, with a
-// warning when its continuation is for the side NOT to move.
+// A match candidate's dropdown label: its comment's first line (label
+// refs cased like that node's own labels), with a warning when its
+// continuation is for the side NOT to move.
 function josekiAltLabel(a, i, mixedParity) {
-  const snip = (a.comment || '').split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
+  const text = normalizeLabelRefs(a.comment || '', a.node);
+  const snip = text.split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
   const warn = mixedParity && !a.parity ? ' ⚠ other side to move' : '';
   return `${i + 1} of ${state.josekiAlts.length}: ${snip.slice(0, 70) || `dictionary line ${i + 1}`}${warn}`;
 }
