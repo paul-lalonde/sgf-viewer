@@ -8,6 +8,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup, parsePoint } 
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
 import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
 import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
+import { Quiz, isQuiz } from './quiz.js';
 
 const CORNER_NAMES = ['↗ top-right', '↖ top-left', '↘ bottom-right', '↙ bottom-left'];
 
@@ -16,7 +17,7 @@ const COLS = 'ABCDEFGHJKLMNOPQRST';
 const coord = (x, y, size) => COLS[x] + (size - y);
 import { TreeView } from './tree.js';
 import { columnSplitter, rowSplitter } from './resize.js';
-import { BLACK, WHITE } from './colors.js';
+import { EMPTY, BLACK, WHITE } from './colors.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -264,24 +265,36 @@ function refresh() {
   const game = state.game;
   if (!game) return;
   if (state.quizSolved && state.quizSolved !== game.current) state.quizSolved = null;
+  if (state.quiz && state.quiz.node !== game.current) { // left the quiz
+    state.quiz = null;
+    board.setQuizFound(null);
+    feedback('', ''); // erase the quiz verdict (e.g. the green "✓ Yes")
+  }
   const pos = game.position();
   // A .wgf quiz node's own marks are its answer key; hide the marks on
   // answer points while it's unsolved so the quiz isn't spoiled. Once
   // solved, reveal them and add the answer's XS display marks.
+  let revealLines = null;
   if (state.isWgf && isQuiz(game.current)) {
+    const quiz = ensureQuiz(game.current);
     if (state.quizSolved === game.current) {
-      pos.marks = pos.marks.concat(displayMarks(game.current, '0', game.size));
+      const reveal = displayMarks(game.current, quiz.revealKey, game.size);
+      pos.marks = pos.marks.concat(reveal.marks);
+      revealLines = reveal.lines;
     } else {
-      const ans = quizAnswers(game.current);
-      pos.marks = pos.marks.filter((m) => !(String.fromCharCode(97 + m.x, 97 + m.y) in ans));
+      const ans = quiz.answerPoints();
+      pos.marks = pos.marks.filter((m) => !ans.has(String.fromCharCode(97 + m.x, 97 + m.y)));
     }
+    // stones placed by consumed sequence answers (YS guided playouts)
+    for (const p of quiz.placed) pos.grid[p.y][p.x] = p.color === 'B' ? BLACK : WHITE;
+    board.setQuizFound(quiz.foundOverlay());
   }
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
   const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
   board.setRegions(ov.regions);
-  board.setLines(ov.lines);
+  board.setLines(revealLines ? (ov.lines || []).concat(revealLines) : ov.lines);
   board.setWgfGhosts(ov.ghosts);
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
@@ -302,12 +315,6 @@ function refresh() {
     // Bookmarkable position: #dir/file.sgf@move (replaceState: no history spam)
     const hash = `#${encodeURIComponent(join(state.dir, state.file))}@${pos.moveNumber}`;
     history.replaceState(null, '', hash);
-  }
-  if (state.quizNode && state.quizNode !== game.current) { // left the quiz
-    state.quizNode = null;
-    state.quizFound = new Set();
-    board.setQuizFound(null);
-    feedback('', ''); // erase the quiz verdict (e.g. the green "✓ Yes")
   }
   if (state.isWgf) renderWgfComment($('comment'), game.current);
   else renderComment($('comment'), game.comment(), pos.marks);
@@ -465,21 +472,14 @@ $('comment').addEventListener('click', (e) => {
 
 // ---------- Dojo quizzes ---------------------------------------------------
 // A quiz node has an answer list (YN "pick the move", YA "find all", or the
-// YO/YS sequence variants) of point:score entries (score 0 = correct), with
-// XS[score:response] feedback. We support single-point answers; YO/YS order
-// isn't enforced and multi-point "sector line" answers are skipped.
+// YO/YS ordered sequences) of entries — single points, click-both-endpoints
+// pairs (sector lines), any-of groups — with XS[score:response] feedback.
+// The grammar and interaction rules live in quiz.js; this section renders
+// its results and owns the solved/continue flow.
 
-const QUIZ_PROPS = ['YN', 'YA', 'YO', 'YS'];
-const isQuiz = (node) => QUIZ_PROPS.some((p) => p in node.props);
-const quizList = (node) => { for (const p of QUIZ_PROPS) if (node.props[p]) return node.props[p]; return []; };
-
-function quizAnswers(node) {
-  const map = {};
-  for (const e of quizList(node)) {
-    const m = /^([a-s][a-s])[:=](\d+)(?::\d+)?$/.exec(e); // point:score[:order]
-    if (m) map[m[1]] = m[2];
-  }
-  return map;
+function ensureQuiz(node) {
+  if (state.quiz?.node !== node) state.quiz = new Quiz(node, state.game.size);
+  return state.quiz;
 }
 
 // The feedback prose for a score: the node's own XS (its leading display
@@ -494,17 +494,19 @@ function quizResponse(node, score) {
   return state.wgfResponses?.[score] ?? null;
 }
 
-// The board marks carried inside an XS display response (the leading
-// TR[..]/XX[..]/LB[..]… before the prose) — shown as the answer reveal.
+// The board marks and lines carried inside an XS display response (the
+// leading TR[..]/LR[..]/LB[..]… before the prose) — the answer reveal.
 const REVEAL_SHAPE = {
   TR: 'triangle', XT: 'triangle', CR: 'circle', XU: 'circle', SQ: 'square', MA: 'x',
   TB: 'territory-b', TW: 'territory-w', // a TB/TW on a stone marks "the marked stone"
 };
+const REVEAL_LINE = { LN: false, LR: false, LS: true }; // prop -> dashed
 function displayMarks(node, score, size) {
   const xs = (node.props.XS || []).find((e) => e.startsWith(`${score}:`));
-  if (!xs) return [];
+  if (!xs) return { marks: [], lines: [] };
   const lead = (xs.slice(score.length + 1).match(/^([A-Z]{1,2}(?:\[[^\][]*\])+)+/) || [''])[0];
   const marks = [];
+  const lines = [];
   const re = /([A-Z]{1,2})((?:\[[^\][]*\])+)/g;
   for (let m; (m = re.exec(lead)); ) {
     const prop = m[1];
@@ -514,6 +516,10 @@ function displayMarks(node, score, size) {
         const i = v.indexOf(':');
         const pt = parsePoint(v.slice(0, i), size);
         if (pt) marks.push({ ...pt, type: 'label', text: v.slice(i + 1) });
+      } else if (prop in REVEAL_LINE) {
+        const [a, b] = v.split(':');
+        const p = parsePoint(a, size), q = parsePoint(b || '', size);
+        if (p && q) lines.push({ x1: p.x, y1: p.y, x2: q.x, y2: q.y, dashed: REVEAL_LINE[prop] });
       } else {
         const pt = parsePoint(v, size);
         if (!pt) continue;
@@ -522,18 +528,7 @@ function displayMarks(node, score, size) {
       }
     }
   }
-  return marks;
-}
-
-// "Take sente"/play-elsewhere: Dojo scores a tenuki via the pass entry
-// (tt) in YN — score 0 means leaving is correct, non-zero gives the reason
-// it's wrong. Returns that score, or undefined when there's no tt entry.
-function senteScore(node) {
-  for (const e of quizList(node)) {
-    const m = /^tt[:=](\d+)$/.exec(e);
-    if (m) return m[1];
-  }
-  return undefined;
+  return { marks, lines };
 }
 
 function quizClick(x, y) {
@@ -546,43 +541,40 @@ function quizClick(x, y) {
     refresh();
     return;
   }
-  if (node !== state.quizNode) { // entered a new quiz
-    state.quizNode = node;
-    state.quizFound = new Set();
-  }
-  const map = quizAnswers(node);
-  const pt = String.fromCharCode(97 + x, 97 + y);
-  // A click off the listed local responses means "take sente" (play
-  // elsewhere); for a YN quiz that's scored by the tt (pass) entry.
-  const sente = !(pt in map);
-  const score = sente ? (node.props.YA ? undefined : senteScore(node)) : map[pt];
-  if (score === undefined) {
-    feedback('offpath', '⊘ not an answer point');
-    return;
-  }
-  const resp = quizResponse(node, score);
-  if (score !== '0') {
-    feedback('fail', `✗ ${resp || 'not the best — try again'}`);
-    return;
-  }
-  // YA = "find ALL the correct points"; YN = "pick the move"
-  if (node.props.YA && !node.props.YN) {
-    if (state.quizFound.has(pt)) return;
-    state.quizFound.add(pt);
-    board.setQuizFound([...state.quizFound].map((p) => ({ x: p.charCodeAt(0) - 97, y: p.charCodeAt(1) - 97 })));
-    const total = Object.values(map).filter((s) => s === '0').length;
-    if (state.quizFound.size >= total) {
-      state.quizSolved = node; // reveal; next click continues
-      feedback('correct', `✓ all ${total} found!`);
-      refresh();
-    } else {
-      feedback('correct', `✓ ${resp || 'Yes'} (${state.quizFound.size}/${total})`);
+  const quiz = ensureQuiz(node);
+  // pairs join stones; the rendered grid includes quiz-placed stones
+  const isStone = board.position.grid[y][x] !== EMPTY;
+  const r = quiz.click(x, y, isStone);
+  const prose = r.resp != null ? quizResponse(node, r.resp) : null;
+  switch (r.kind) {
+    case 'pending':
+      feedback('', '◐ first endpoint — now click the other end of the line');
+      break;
+    case 'unselect':
+      feedback('', '');
+      break;
+    case 'again': // already-found answer: nothing new to say
+      return;
+    case 'miss':
+      feedback('offpath', '⊘ not an answer point');
+      return;
+    case 'wrong':
+      feedback('fail', `✗ ${prose || 'not the best — try again'}`);
+      break;
+    case 'correct': {
+      const base = prose || (r.sente ? 'sente' : 'correct');
+      if (r.solved) {
+        state.quizSolved = node; // reveal; next click continues
+        feedback('correct', r.total > 1 ? `✓ all ${r.total} found!` : `✓ ${base}`);
+      } else if (r.total) { // find-all progress
+        feedback('correct', `✓ ${base} (${r.found}/${r.total})`);
+      } else { // ordered quiz: this step is right, more to come
+        feedback('correct', `✓ ${base}`);
+      }
+      break;
     }
-  } else {
-    state.quizSolved = node; // reveal the answer; next click continues
-    feedback('correct', `✓ ${resp || (sente ? 'sente' : 'correct')}`);
-    refresh();
   }
+  refresh(); // sync overlays (armed endpoint, found lines, placed stones)
 }
 
 // Right-click a tree node to inspect its source. For .wgf we show the

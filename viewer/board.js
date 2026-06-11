@@ -19,7 +19,7 @@ export class Board {
     this.showNumbers = false; // draw move numbers on stones
     this.josekiGhosts = null; // [{x,y,color,label}] joseki continuation overlay
     this.josekiMarks = null; // [{x,y,type,text}] marks from the joseki node
-    this.quizFound = null; // [{x,y}] correct quiz answers found so far
+    this.quizFound = null; // {points, lines, pending} quiz progress overlay
     this.regions = null; // [{x,y}] shaded region (Dojo TT)
     this.lines = null; // [{x1,y1,x2,y2,arrow}] lines/arrows (LN/LR/LS)
     this.wgfGhosts = null; // [{x,y,color,label}] continuation stones (YB/YW)
@@ -78,9 +78,11 @@ export class Board {
     this.draw();
   }
 
-  // Correct quiz answers found so far (they "pop" onto the board).
-  setQuizFound(list) {
-    this.quizFound = list;
+  // Quiz progress overlay: {points: [{x,y}] found answers, lines:
+  // [{x1,y1,x2,y2}] found endpoint pairs, pending: {x,y}|null the armed
+  // endpoint awaiting its partner}, or null to clear.
+  setQuizFound(overlay) {
+    this.quizFound = overlay;
     this.draw();
   }
 
@@ -390,16 +392,35 @@ export class Board {
     }
   }
 
-  // A solid accent disc at each found quiz answer (a "pop").
+  // Quiz progress: a solid accent disc at each found answer (a "pop"),
+  // an accent line for each found endpoint pair (a sector line), and a
+  // ring on the armed endpoint awaiting its partner.
   _drawQuizFound(ctx, m) {
     if (!this.quizFound) return;
+    const { points = [], lines = [], pending = null } = this.quizFound;
+    ctx.save();
+    ctx.strokeStyle = '#2e7d32';
+    ctx.lineWidth = 2.5;
+    for (const l of lines) {
+      if (!this._visible(m, l.x1, l.y1) || !this._visible(m, l.x2, l.y2)) continue;
+      ctx.beginPath();
+      ctx.moveTo(this._sx(m, l.x1), this._sy(m, l.y1));
+      ctx.lineTo(this._sx(m, l.x2), this._sy(m, l.y2));
+      ctx.stroke();
+    }
     ctx.fillStyle = '#2e7d32';
-    for (const { x, y } of this.quizFound) {
+    for (const { x, y } of points) {
       if (!this._visible(m, x, y)) continue;
       ctx.beginPath();
       ctx.arc(this._sx(m, x), this._sy(m, y), m.cell * 0.32, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (pending && this._visible(m, pending.x, pending.y)) {
+      ctx.beginPath();
+      ctx.arc(this._sx(m, pending.x), this._sy(m, pending.y), m.cell * 0.38, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Shaded region behind the stones (Dojo TT — territory/moyo highlight).

@@ -161,12 +161,12 @@ layout code). This is the one irregularity in the table; see Open Questions.
 
 | Prop | Value form | Meaning | Viewer mapping |
 |---|---|---|---|
-| `YN` | `point:score` list | **quiz** — "play the move": score `0` = acceptable, non-zero = a wrong reason; `tt:score` = the verdict for tenuki/"take sente" | interactive quiz (see §5.4–§5.5) |
-| `YA` | `point:score` list | **quiz** — "find **all** the correct points" | interactive find-all quiz |
+| `YN` | answer list (§5.4) | **quiz** — "play the move" (or click a line's two endpoints): score `0` = acceptable, non-zero = a wrong reason; `tt:score` = the verdict for tenuki/"take sente" | interactive quiz (see §5.4–§5.5) |
+| `YA` | answer list (§5.4) | **quiz** — "find **all** the correct points / lines" | interactive find-all quiz |
 | `YG` | `[index:]target` list | hyperlink **Goto** targets, paired with `_…_` links in the comment; `target` = `:NodeName` or `:B:file.wgf:.label` | resolve & navigate |
 | `YF` | node name | **Forward** target — the "Next"/"Click here" continuation | resolve & navigate |
 | `YB` / `YW` | point list | black / white stones of an illustrated **continuation** | → translucent ghost stones (numbered by any `LB` on the same point) |
-| `YO` `YS` | `point:score[:order]` list | ordered **sequence** quiz (play moves in turn); occasional multi-point answers | answerable like `YN` (order not enforced) |
+| `YO` `YS` | answer list (§5.4) | **staged** quiz — the score-`0` entries are consumed in file order ("pick A–D in order", guided playouts); `YS` interleaves `pt@b`/`pt@w` stone placements | staged quiz with placements (§5.4) |
 | `YX` | `0`/`1` | a per-node flag on game nodes (inferred: test mode) | ignored |
 | `YC` | one integer | counter near "back" links (inferred) | ignored |
 
@@ -232,11 +232,26 @@ A sequence may be packed into one node (§1.4) and the points labelled
   board (no clear), the `LB` numbers naming the order.
 
 ### 5.4 Quizzes and the score vocabulary
-A quiz node carries `YN` (pick the move) or `YA` (find all). Each entry is
-`point:score`:
+A quiz node carries `YN` (pick the move), `YA` (find all), or `YO`/`YS`
+(staged). Every entry of the answer list is one of (this grammar covers
+all 4,192 entries in the four files —
+`CLAUDE.scripts/scan-quiz-entries.mjs`):
+
+| entry | meaning |
+|---|---|
+| `pt:score[:resp]` | single-point answer; `resp` (optional) is the `XS` feedback key, defaulting to the score |
+| `p1p2:score[:resp]` | **pair** answer — click **both endpoints** (unordered): the sector-line tests |
+| `p1p2…pn=score` | **any-of** — each listed point alone earns this score (`mpnp=0` = "either triangle") |
+| `tt:score` | verdict for an off-list single click (take sente, §5.5) |
+| `tttt:score` | verdict for an off-list **pair** |
+| `pt@b` / `pt@w` | stone placed when the preceding staged answer is consumed (`YS` guided playouts) |
 
 * `score = 0` → an acceptable answer.
 * `score > 0` → a wrong answer; the number is a **reason code**.
+* Scores read numerically **mod 256**: `nfmf=00` is correct, and the two
+  ≥3-digit codes in the data (`os:268`, `kn:274`/`qc:274`) wrap to reason
+  codes 12 / 18, whose prose fits — the high bit is internal flagging.
+  **(inferred)**
 
 The matching `XS[score:…]` (§1.2) gives the feedback for that score: a
 display response of marks + prose. A node usually defines a bespoke `XS[0]`
@@ -244,13 +259,33 @@ display response of marks + prose. A node usually defines a bespoke `XS[0]`
 **file-wide shared vocabulary** for the wrong-answer codes (`44`/`45`/…),
 which are defined as prose on whichever nodes introduce them.
 
-> **Viewer:** clicking a listed point looks up its score. The node's own
-> answer-key marks are **hidden** while the quiz is unanswered, so it isn't
-> spoiled. A non-zero score shows the `XS` reason (the node's own prose, else
-> the file-wide reason map) and the player retries. A `0` reveals the answer
-> — un-hides the answer-key marks, draws the `XS[0]` display marks, and shows
-> the prose — then waits for a click to continue (Dojo: "click to get to the
-> next turn"), rather than auto-advancing.
+**Pairs vs. moves.** Pair endpoints are always stones (sector lines join
+stones), while single answers are moves on empty points — so a click on a
+stone selects an endpoint and a click on an empty point answers as a move.
+Mixed quizzes rely on this: *"Click on the relevant two sector lines AND
+click on the appropriate running move"* (`YA[tt:1][tttt:1][mkgp:0][coei:0][kl:0]`).
+
+**Staged quizzes (`YO`/`YS`).** The score-`0` entries are consumed in file
+order — each is the one required answer of its stage, and its `resp` key
+is the "Yes, next…" prompt (`qj:0:2` → show `XS[2]`, *not* an ordinal as
+previously guessed). Wrong-answer entries are stage-sensitive: the first
+match **at/after** the consumed position applies, so the same point can
+draw different reasons at different stages (`il:5` early, `il:4` after the
+position has grown). In `YS`, the `pt@b`/`pt@w` entries following a correct
+answer are stones placed on the board before the next stage — the quiz
+plays out the sequence (`hl:0:2 hl@b hm@w` = "right; Black hl is played,
+White answers hm — now what?").
+
+> **Viewer:** `quiz.js` implements exactly this grammar (see
+> `quiz.design.md`); `CLAUDE.scripts/verify-quiz-solvability.mjs` replays
+> every quiz in the corpus to solved. The node's own answer-key marks are
+> **hidden** while the quiz is unanswered, so it isn't spoiled. A non-zero
+> score shows the `XS` reason (the node's own prose, else the file-wide
+> reason map) and the player retries. Find-all progress shows as green
+> discs/lines; an armed endpoint shows as a green ring. Solving reveals
+> the answer — un-hides the answer-key marks, draws the solving `XS`
+> display marks **and lines** — then waits for a click to continue (Dojo:
+> "click to get to the next turn"), rather than auto-advancing.
 
 Observed reason codes (Contact/Sector): `1` continue contact · `2`/`3` don't
 take/butt · `5` both stable, take sente · `44` you're stable, take sente ·
@@ -283,9 +318,6 @@ the node's `YF` target, else simply the next node.
 These are observed in the files but currently ignored or only partially
 handled:
 
-* `YO` / `YS` — sequence quizzes are answerable like `YN`, but the move
-  **order** isn't enforced (and the occasional multi-point answer is
-  treated as its constituent points).
 * `XN` — the lesson menu/table-of-contents *tree* (we show its
   category/title as a breadcrumb but don't build the nav tree).
 * `XC` units digit; `XC[32]`/`XC[60]` exact layouts.
@@ -302,5 +334,8 @@ handled:
    correlation found. Likely an authoring/version field.
 3. **`tt` reason codes 44 vs 45.** Confirmed by their `XS` text, but the full
    code table (especially ≥ 20) is only partially mapped.
-4. **`YO`/`YS` answer grammar** — `cp:0:2` appears to be
-   `point:score:ordinal`; unverified.
+4. ~~**`YO`/`YS` answer grammar**~~ — resolved: `cp:0:2` is
+   `point:score:responseKey` (the `XS` prompt for that stage), not an
+   ordinal. See §5.4.
+5. **Score high bits.** `268`/`274` wrap mod 256 to codes with fitting
+   prose; what the set bit means inside Dojo is unknown.
