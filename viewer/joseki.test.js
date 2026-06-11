@@ -5,7 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildIndex, matchAll, makeTransform, localizeComment } from './joseki.js';
+import {
+  buildIndex, matchAll, makeTransform, localizeComment,
+  childStone, childLetter, freeLetters, nodeMarks,
+} from './joseki.js';
 import { BLACK, WHITE, EMPTY, emptyGrid } from './colors.js';
 
 const SIZE = 19;
@@ -127,4 +130,58 @@ test('[BEHAVIOR] corner phrases localize as a unit, vertical word first', () => 
 test('[BEHAVIOR] words inside other words are safe', () => {
   const s = 'copyright; blacksmith tops the uppermost lefty';
   assert.equal(localizeComment(s, T_BL, true), s);
+});
+
+// --- navigator helpers ----------------------------------------------------
+
+const mknode = (props, children = []) => {
+  const n = { props, parent: null, children };
+  for (const c of children) c.parent = n;
+  return n;
+};
+
+test('[BEHAVIOR] nodeMarks renders Kogo\'s MA ("squared position") as a square', () => {
+  // dict frame: MA[pp] TR[qh] on a node — identity transform keeps points
+  const node = mknode({ MA: ['pp'], TR: ['qh'] });
+  const marks = nodeMarks(node, T_ID, SIZE);
+  assert.equal(marks.length, 2);
+  assert.ok(marks.some((m) => m.type === 'square' && m.x === 15 && m.y === 15));
+  assert.ok(marks.some((m) => m.type === 'triangle' && m.x === 16 && m.y === 7));
+  assert.ok(!marks.some((m) => m.type === 'x'));
+});
+
+test('[BEHAVIOR] nodeMarks includes the node\'s LB letters, skipping choice points', () => {
+  const node = mknode({ LB: ['qk:A', 'mc:F', 'pf:G'] });
+  const skip = new Set(['16,10']); // qk's board point carries a choice ghost
+  const marks = nodeMarks(node, T_ID, SIZE, skip);
+  const labels = marks.map((m) => m.text).sort();
+  assert.deepEqual(labels, ['F', 'G']); // A suppressed, F and G drawn
+  assert.ok(marks.every((m) => m.type === 'label'));
+});
+
+test('[BEHAVIOR] nodeMarks maps through the transform', () => {
+  const node = mknode({ MA: ['pp'] });
+  const marks = nodeMarks(node, T_BL, SIZE); // bottom-left placement
+  const [u, v] = [SIZE - 1 - 15, 15]; // pp in canonical frame
+  const [x, y] = T_BL.toBoard(u, v);
+  assert.deepEqual(marks, [{ x, y, type: 'square' }]);
+});
+
+test('[BEHAVIOR] freeLetters never hands out a letter the node\'s labels use', () => {
+  const node = mknode({ LB: ['qk:A', 'mc:F', 'me:B', 'lc:C', 'of:D', 'rf:E', 'pf:G'] });
+  const next = freeLetters(node);
+  assert.equal(next(), 'h'); // a–g are the prose's vocabulary
+  assert.equal(next(), 'i');
+  const bare = freeLetters(mknode({}));
+  assert.equal(bare(), 'a');
+});
+
+test('[BEHAVIOR] childLetter reads the parent\'s label for the child\'s stone', () => {
+  const child = mknode({ B: ['me'] });
+  const parent = mknode({ LB: ['me:B'] }, [child]);
+  assert.equal(childLetter(parent, child, SIZE), 'B');
+  const setupChild = mknode({ AW: ['pp'] }); // "+stone" what-if variation
+  const parent2 = mknode({ LB: ['qk:A'] }, [setupChild]);
+  assert.equal(childLetter(parent2, setupChild, SIZE), null);
+  assert.equal(childStone(setupChild, SIZE).setup, true);
 });

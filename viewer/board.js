@@ -193,9 +193,11 @@ export class Board {
     this._drawLines(ctx, m);
     this._drawLastMove(ctx, m);
     this._drawCandidates(ctx, m);
-    this._drawJosekiMarks(ctx, m);
     this._drawQuizFound(ctx, m);
     this._drawGhostStones(ctx, m, this.josekiGhosts);
+    // above the ghosts: a dictionary mark may sit on a choice stone
+    // (e.g. Kogo's "squared position" under a what-if variation stone)
+    this._drawJosekiMarks(ctx, m);
     this._drawGhostStones(ctx, m, this.wgfGhosts);
     this._drawGhost(ctx, m);
     ctx.restore();
@@ -382,13 +384,20 @@ export class Board {
     }
   }
 
-  // Marks declared on the matched joseki node (e.g. the triangled
-  // position the comment refers to), drawn in the dictionary accent.
+  // Marks declared on the matched joseki node (the "triangled" and
+  // "squared" positions and letter labels the comment refers to), drawn
+  // in the dictionary accent. A label on an empty point gets a white
+  // patch so the grid doesn't run through it.
   _drawJosekiMarks(ctx, m) {
     if (!this.josekiMarks) return;
     for (const mark of this.josekiMarks) {
       if (!this._visible(m, mark.x, mark.y)) continue;
-      drawMark(ctx, mark, this._sx(m, mark.x), this._sy(m, mark.y), m.cell, '#b8860b');
+      const cx = this._sx(m, mark.x), cy = this._sy(m, mark.y);
+      if (mark.type === 'label' && this.position.grid[mark.y][mark.x] === EMPTY) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(cx - m.cell * 0.4, cy - m.cell * 0.4, m.cell * 0.8, m.cell * 0.8);
+      }
+      drawMark(ctx, mark, cx, cy, m.cell, '#b8860b');
     }
   }
 

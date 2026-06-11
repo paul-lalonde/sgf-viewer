@@ -13,7 +13,7 @@
 // frame the dictionary's own top-right corner sits in.
 
 import { parseSGF } from './sgf.js';
-import { moveOf } from './game.js';
+import { moveOf, singleSetup, parsePoint } from './game.js';
 import { BLACK, WHITE, EMPTY } from './colors.js';
 
 const WIN = 10; // corner window depth (lines from the corner) considered
@@ -247,6 +247,79 @@ function cornerSetUnder(grid, size, T) {
 function subset(stones, Q) {
   for (const k of stones) if (!Q.has(k)) return false;
   return true;
+}
+
+// --- navigator helpers -------------------------------------------------------
+
+// A child's representative stone — a move, or a single setup stone (the
+// "additional stone on the squared position" variations). {x,y,color,setup}.
+export function childStone(node, size) {
+  const mv = moveOf(node, size);
+  if (mv) return mv.pass ? null : { x: mv.x, y: mv.y, color: mv.color, setup: false };
+  const s = singleSetup(node, size);
+  return s ? { x: s.x, y: s.y, color: s.color, setup: true } : null;
+}
+
+// The dictionary's letter for a child: the parent's LB label on the
+// child's stone, or null when unlabelled.
+export function childLetter(parent, child, size) {
+  const st = childStone(child, size);
+  if (!st) return null;
+  const pt = String.fromCharCode(97 + st.x, 97 + st.y);
+  for (const v of parent.props.LB || []) {
+    const i = v.indexOf(':');
+    if (i >= 0 && v.slice(0, i) === pt) return v.slice(i + 1);
+  }
+  return null;
+}
+
+// Letters for unlabelled choices that can't be mistaken for the
+// dictionary's own vocabulary: skips every letter the node's LB labels
+// use (the prose's 'a'..'g'), so a fallback letter never collides with
+// a letter the comment is talking about.
+export function freeLetters(node) {
+  const used = new Set();
+  for (const v of node.props.LB || []) {
+    const i = v.indexOf(':');
+    if (i >= 0) used.add(v.slice(i + 1).trim().toLowerCase());
+  }
+  let next = 0;
+  return () => {
+    while (next < 26 && used.has(String.fromCharCode(97 + next))) next++;
+    const letter = String.fromCharCode(97 + Math.min(next, 25));
+    used.add(letter);
+    return letter;
+  };
+}
+
+// Marks the dictionary draws on a matched node, mapped onto your board:
+// shape glyphs — where Kogo's prose says "squared (marked) position" it
+// writes MA, so MA renders as a square here — plus the node's LB letter
+// labels (the prose's 'a'/'F'/'G' references). `skip` lists "x,y" board
+// points already carrying a choice ghost, whose letter shows there.
+const NODE_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'square']];
+
+export function nodeMarks(node, T, size, skip = new Set()) {
+  const marks = [];
+  const toBoard = (pt) => {
+    const p = parsePoint(pt, size);
+    return p && T.toBoard(size - 1 - p.x, p.y);
+  };
+  for (const [prop, type] of NODE_MARKS) {
+    for (const v of node.props[prop] || []) {
+      if (v.includes(':')) continue; // single points only
+      const at = toBoard(v);
+      if (at) marks.push({ x: at[0], y: at[1], type });
+    }
+  }
+  for (const v of node.props.LB || []) {
+    const i = v.indexOf(':');
+    if (i < 0) continue;
+    const at = toBoard(v.slice(0, i));
+    if (!at || skip.has(`${at[0]},${at[1]}`)) continue;
+    marks.push({ x: at[0], y: at[1], type: 'label', text: v.slice(i + 1) });
+  }
+  return marks.length ? marks : null;
 }
 
 // --- comment localization ---------------------------------------------------

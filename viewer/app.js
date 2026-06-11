@@ -2,11 +2,9 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup, parsePoint } from './game.js';
+import { Game, isMove, leafVerdict, gtpPoint, moveOf, parsePoint } from './game.js';
 
-// joseki node marks → board overlay types
-const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
-import { buildIndex, matchAll as matchJosekiAll, localizeComment } from './joseki.js';
+import { buildIndex, matchAll as matchJosekiAll, localizeComment, childStone, childLetter, freeLetters, nodeMarks } from './joseki.js';
 import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
 import { Quiz, isQuiz } from './quiz.js';
 
@@ -1127,16 +1125,19 @@ function renderJosekiNav() {
     ghosts.push({ x, y, color: T.col(st.color), label: String(i + 1) });
   });
   const choices = [];
-  node.children.forEach((c, i) => {
+  const fallback = freeLetters(node); // never collides with the prose's letters
+  node.children.forEach((c) => {
     const st = childStone(c, size);
     if (!st) return;
     const [x, y] = toXY(st.x, st.y);
-    const letter = childLetter(node, c, size) || String.fromCharCode(97 + i);
+    const letter = childLetter(node, c, size) || fallback();
     choices.push({ child: c, letter, x, y, color: T.col(st.color), setup: st.setup });
   });
   choices.forEach((ch) => ghosts.push({ x: ch.x, y: ch.y, color: ch.color, label: ch.letter }));
   board.setJosekiGhosts(ghosts.length ? ghosts : null);
-  board.setJosekiMarks(josekiMarks(node, T, size));
+  // the node's own marks and letter labels; choice points show their
+  // letter on the ghost stone already
+  board.setJosekiMarks(nodeMarks(node, T, size, new Set(choices.map((ch) => `${ch.x},${ch.y}`))));
   state.josekiChoices = choices;
 
   const where = path.length
@@ -1184,43 +1185,6 @@ function josekiAltLabel(a, i, mixedParity) {
   const snip = (a.comment || '').split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
   const warn = mixedParity && !a.parity ? ' ⚠ other side to move' : '';
   return `${i + 1} of ${state.josekiAlts.length}: ${snip.slice(0, 70) || `dictionary line ${i + 1}`}${warn}`;
-}
-
-// A child's representative stone — a move, or a single setup stone (the
-// "additional stone on the triangled position" variations). {x,y,color,setup}.
-function childStone(node, size) {
-  const mv = moveOf(node, size);
-  if (mv) return mv.pass ? null : { x: mv.x, y: mv.y, color: mv.color, setup: false };
-  const s = singleSetup(node, size);
-  return s ? { x: s.x, y: s.y, color: s.color, setup: true } : null;
-}
-
-// The joseki node's own marks (triangle etc.) mapped onto your board.
-function josekiMarks(node, T, size) {
-  const marks = [];
-  for (const [prop, type] of JOSEKI_MARKS) {
-    for (const v of node.props[prop] || []) {
-      if (v.length < 2 || v.includes(':')) continue; // single points only
-      const px = v.charCodeAt(0) - 97;
-      const py = v.charCodeAt(1) - 97;
-      if (px < 0 || py < 0 || px >= size || py >= size) continue;
-      const [x, y] = T.toBoard(size - 1 - px, py);
-      marks.push({ x, y, type });
-    }
-  }
-  return marks.length ? marks : null;
-}
-
-function childLetter(parent, child, size) {
-  const st = childStone(child, size);
-  if (!st) return null;
-  const mv = { x: st.x, y: st.y };
-  const pt = String.fromCharCode(97 + mv.x, 97 + mv.y); // child's move as a dict SGF point
-  for (const v of parent.props.LB || []) {
-    const i = v.indexOf(':');
-    if (i >= 0 && v.slice(0, i) === pt) return v.slice(i + 1);
-  }
-  return null;
 }
 
 function setJosekiBody(html) {
