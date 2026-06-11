@@ -6,7 +6,7 @@ import { Game, isMove, leafVerdict, gtpPoint, moveOf, singleSetup, parsePoint } 
 
 // joseki node marks → board overlay types
 const JOSEKI_MARKS = [['TR', 'triangle'], ['SQ', 'square'], ['CR', 'circle'], ['MA', 'x']];
-import { buildIndex, matchAll as matchJosekiAll } from './joseki.js';
+import { buildIndex, matchAll as matchJosekiAll, localizeComment } from './joseki.js';
 import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse } from './wgf.js';
 import { Quiz, isQuiz } from './quiz.js';
 
@@ -1064,12 +1064,16 @@ async function loadJosekiIndex() {
 
 function updateJoseki(pos) {
   if (state.josekiStatus !== 'ready') return; // loading/error message already shown
-  const results = matchJosekiAll(state.josekiIndex, pos.grid, state.game.size);
+  // nextColor breaks colour-twin ties: prefer the dictionary line whose
+  // continuation is the side actually to move on this board
+  const results = matchJosekiAll(state.josekiIndex, pos.grid, state.game.size,
+    { nextColor: state.game.nextColor() });
   state.josekiResults = results;
   if (!results.length) {
     board.setJosekiGhosts(null);
     board.setJosekiMarks(null);
     state.josekiBase = null;
+    state.josekiAlts = null;
     setJosekiBody('<div class="jmsg">no joseki match in any corner</div>');
     return;
   }
@@ -1081,11 +1085,20 @@ function updateJoseki(pos) {
 
 // Re-anchor the navigator on a corner's match (resets the walked line).
 function anchorJoseki(result) {
-  // unchanged only if BOTH the corner and the node are the same — two
-  // corners can share one dictionary node (same shape) yet need different
-  // transforms, so guarding on the node alone would ignore a corner switch
-  if (result.corner === state.josekiSel && result.node === state.josekiBase) return;
+  state.josekiAlts = result.alternatives || [result];
+  // unchanged if the corner is the same and the current anchor is still
+  // among the position's candidates — this both avoids resetting the
+  // walked line on every refresh and preserves a user-picked alternative.
+  // (Guarding on the node alone would miss a corner switch: two corners
+  // can share one dictionary node yet need different transforms.)
+  if (result.corner === state.josekiSel
+      && state.josekiAlts.some((a) => a.node === state.josekiBase)) return;
   state.josekiSel = result.corner;
+  setJosekiAnchor(result);
+}
+
+// Point the navigator at one specific match candidate.
+function setJosekiAnchor(result) {
   state.josekiBase = result.node;
   state.josekiNode = result.node;
   state.josekiT = result.transform;
@@ -1148,11 +1161,29 @@ function renderJosekiNav() {
         `<span class="jmove jcorner${r.corner === state.josekiSel ? ' sel' : ''}" data-c="${r.corner}" title="${CORNER_NAMES[r.corner]}">${CORNER_NAMES[r.corner].split(' ')[0]} ${r.matched}</span>`).join('') +
       '</div>'
     : '';
+  // selector when the position matches several dictionary lines (twins,
+  // transpositions, shared shapes) — pick which reading to follow
+  const alts = state.josekiAlts || [];
+  const mixed = alts.some((a) => a.parity) && alts.some((a) => !a.parity);
+  const altSel = alts.length > 1
+    ? `<div class="jcont jalts"><select class="jaltsel" title="this position appears in ${alts.length} dictionary lines">`
+      + alts.map((a, i) =>
+        `<option value="${i}"${a.node === base ? ' selected' : ''}>${escapeHtml(josekiAltLabel(a, i, mixed))}</option>`).join('')
+      + '</select></div>'
+    : '';
   setJosekiBody(
-    corners +
+    corners + altSel +
     `<div class="jmsg">${where}; pick a variation:</div>` +
     comment + choiceChips + (nav ? `<div class="jcont jnav">${nav}</div>` : ''),
   );
+}
+
+// A match candidate's dropdown label: its comment's first line, with a
+// warning when its continuation is for the side NOT to move.
+function josekiAltLabel(a, i, mixedParity) {
+  const snip = (a.comment || '').split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
+  const warn = mixedParity && !a.parity ? ' ⚠ other side to move' : '';
+  return `${i + 1} of ${state.josekiAlts.length}: ${snip.slice(0, 70) || `dictionary line ${i + 1}`}${warn}`;
 }
 
 // A child's representative stone — a move, or a single setup stone (the
@@ -1192,45 +1223,6 @@ function childLetter(parent, child, size) {
   return null;
 }
 
-// Rewrite a joseki comment so its colour and direction words match how
-// the joseki actually sits on your board. The dictionary is written for
-// the top-right corner with Black first; under a colour-swapped or
-// rotated/reflected match those words must follow, or the description
-// contradicts the stones. Word boundaries keep "copyright" etc. safe.
-function localizeComment(text, T, colorSwap) {
-  if (colorSwap) {
-    text = text.replace(/\b(black|white)\b/gi, (m) =>
-      matchCase(m, m[0].toLowerCase() === 'b' ? 'white' : 'black'));
-  }
-  // direction permutation induced by the geometry (corner + diagonal)
-  const dir = {
-    top: boardDir(T, 0, -1),
-    bottom: boardDir(T, 0, 1),
-    left: boardDir(T, 1, 0),
-    right: boardDir(T, -1, 0),
-  };
-  if (dir.top === 'top' && dir.left === 'left') return text; // identity geometry
-  return text.replace(/\b(upper|lower|top|bottom|left|right)\b/gi, (m) => {
-    const lw = m.toLowerCase();
-    const key = lw === 'upper' ? 'top' : lw === 'lower' ? 'bottom' : lw;
-    return matchCase(m, dir[key]);
-  });
-}
-
-// The board direction a canonical (dict-frame) step maps to under T.
-function boardDir(T, du, dv) {
-  const [ax, ay] = T.toBoard(5, 5);
-  const [bx, by] = T.toBoard(5 + du, 5 + dv);
-  if (bx !== ax) return bx > ax ? 'right' : 'left';
-  return by > ay ? 'bottom' : 'top'; // board y grows downward
-}
-
-function matchCase(orig, repl) {
-  if (orig === orig.toUpperCase()) return repl.toUpperCase();
-  if (orig[0] === orig[0].toUpperCase()) return repl[0].toUpperCase() + repl.slice(1);
-  return repl;
-}
-
 function setJosekiBody(html) {
   $('josekibody').innerHTML = html;
 }
@@ -1238,6 +1230,17 @@ function setJosekiBody(html) {
 function escapeHtml(s) {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
+
+// Switch among the dictionary lines that match this position.
+$('josekibody').addEventListener('change', (e) => {
+  const sel = e.target.closest('.jaltsel');
+  if (!sel || !state.josekiAlts) return;
+  const alt = state.josekiAlts[+sel.value];
+  if (alt) {
+    setJosekiAnchor(alt);
+    renderJosekiNav();
+  }
+});
 
 // Navigate the dictionary (descend into a choice, back up) or commit the
 // walked line into your own game.
@@ -1276,7 +1279,9 @@ function playJosekiLine() {
     const mv = moveOf(n, size);
     if (!mv || mv.pass) continue;
     const [x, y] = T.toBoard(size - 1 - mv.x, mv.y);
-    if (state.game.playAt(x, y) === null) break;
+    // the line's own colours (joseki lines may not alternate, and the
+    // game's global turn parity is no guide inside one corner)
+    if (state.game.playAt(x, y, T.col(mv.color)) === null) break;
   }
   setDirty(true);
   tree.setGame(state.game);

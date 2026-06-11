@@ -533,6 +533,15 @@ body.treeoutline.sidecomment #commentpane {
 #josekibody .jplay:hover { background: #a07408; }
 #josekibody .jcorners { margin-bottom: 6px; }
 #josekibody .jcorner.sel { background: #b8860b; color: #fff; border-color: #b8860b; }
+#josekibody .jalts { margin-bottom: 6px; }
+#josekibody .jaltsel {
+  max-width: 100%;
+  font: 12px system-ui, sans-serif;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: #fff;
+}
 
 #strength {
   font: 13px system-ui, sans-serif;

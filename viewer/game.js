@@ -204,15 +204,17 @@ export class Game {
 
   // Play at (x, y): follow an existing child, else add a node — at the
   // end of a line this appends, mid-line it opens a new variation.
+  // `color` forces the stone's colour (e.g. a joseki line's own colours,
+  // which may not alternate); omitted, it's whoever's turn it is.
   // Returns 'followed' | 'added' | null (occupied point).
-  playAt(x, y) {
+  playAt(x, y, color = null) {
     if (this.position().grid[y][x] !== EMPTY) return null;
     const existing = this.childAt(x, y);
-    if (existing) {
+    if (existing && (color === null || moveOf(existing, this.size).color === color)) {
       this.goTo(existing);
       return 'followed';
     }
-    const prop = this.nextColor() === BLACK ? 'B' : 'W';
+    const prop = (color ?? this.nextColor()) === BLACK ? 'B' : 'W';
     const node = { props: { [prop]: [pt(x, y)] }, parent: this.current, children: [] };
     this.current.children.push(node);
     this.goTo(node);

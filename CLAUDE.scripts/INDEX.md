@@ -15,7 +15,9 @@ Quick investigation scripts. Prefer re-using these over writing new ones.
   Run: `python3 serve.py 8013 &` then `python3 dev/cdp-quiz-test.py 8013`
 - `walk-joseki-transforms.mjs` — place sample Kogo joseki lines in all 16
   symmetry variants (4 corners × diagonal × colour swap) through the real
-  Game+matchAll pipeline; checks matched-node identity, continuation
-  points/colours, walk order, and localized direction/colour words stay
-  consistent. Replicates app.js's navigator math — keep in sync.
+  Game+matchAll pipeline (parity-aware); checks the winner is never
+  wrong-coloured when a right-coloured candidate exists, and that
+  continuation points/colours, walk order, and localized direction/colour
+  words stay consistent. Duplicate/transposition picks are reported as
+  notes. Uses joseki.js's real localizeComment.
   Run: `node CLAUDE.scripts/walk-joseki-transforms.mjs [maxLines]`

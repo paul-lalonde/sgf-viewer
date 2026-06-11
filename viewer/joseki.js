@@ -145,10 +145,22 @@ for (let corner = 0; corner < 4; corner++) {
 // --- match -----------------------------------------------------------------
 
 // Best dictionary match in EACH of your board's corners, deepest first.
-// Returns [{corner, node, matched, transform, comment}] (one per corner
-// that has a match of at least minStones).
-export function matchAll(index, grid, size, { minStones = 2 } = {}) {
-  const best = new Map(); // corner -> {entry, T}
+// Returns [{corner, node, matched, transform, comment, parity,
+// alternatives}] (one per corner with a match of at least minStones).
+//
+// The same stone arrangement can exist in the dictionary several times —
+// colour-swapped twins (two josekis that transpose into mirror-coloured
+// versions of one shape), diagonal transposition copies, and shared
+// shapes reached by different move orders. All deepest candidates are
+// kept in `alternatives` (the chosen one first) so a UI can offer them.
+//
+// `nextColor` (board-frame BLACK/WHITE) is the parity tie-break: prefer
+// the candidate whose mainline continuation is the colour actually to
+// move. Colour twins always tie on stone count, so without this the
+// winner depends on board orientation — and the loser recommends moves
+// for the wrong side.
+export function matchAll(index, grid, size, { minStones = 2, nextColor = null } = {}) {
+  const found = new Map(); // corner -> [{entry, T}]
   for (const { corner, diag, swap } of TRANSFORMS) {
     const T = makeTransform(corner, diag, swap, size);
     const Q = cornerSetUnder(grid, size, T);
@@ -162,22 +174,52 @@ export function matchAll(index, grid, size, { minStones = 2 } = {}) {
         seen.add(entry);
         if (entry.stones.length < minStones) continue;
         if (!subset(entry.stones, Q)) continue;
-        const cur = best.get(corner);
-        if (!cur || better(entry, cur.entry)) best.set(corner, { entry, T });
+        let cands = found.get(corner);
+        if (!cands) found.set(corner, (cands = []));
+        cands.push({ entry, T });
       }
     }
   }
   const results = [];
-  for (const [corner, b] of best) {
-    results.push({
+  for (const [corner, cands] of found) {
+    const max = Math.max(...cands.map((c) => c.entry.stones.length));
+    // distinct deepest nodes (a symmetric shape can match one node under
+    // several transforms — the first enumerated is as good as any)
+    const byNode = new Map();
+    for (const c of cands) {
+      if (c.entry.stones.length === max && !byNode.has(c.entry.node)) byNode.set(c.entry.node, c);
+    }
+    const ranked = [...byNode.values()]
+      .map((c) => ({ ...c, parity: parityMatches(c, nextColor, size) }))
+      .sort((a, b) => (b.parity - a.parity) || (quality(b.entry.node) - quality(a.entry.node)));
+    const toResult = (c) => ({
       corner,
-      node: b.entry.node,
-      matched: b.entry.stones.length,
-      transform: b.T,
-      comment: (b.entry.node.props.C || []).join('\n'),
+      node: c.entry.node,
+      matched: c.entry.stones.length,
+      transform: c.T,
+      parity: c.parity,
+      comment: (c.entry.node.props.C || []).join('\n'),
     });
+    results.push({ ...toResult(ranked[0]), alternatives: ranked.map(toResult) });
   }
   return results.sort((a, b) => b.matched - a.matched);
+}
+
+// Whether a candidate's mainline continuation is the colour to move on
+// the board (1/0). A pass child ("plays elsewhere") still names a mover,
+// so it counts. Unknown turn or no continuation counts as no.
+function parityMatches({ entry, T }, nextColor, size) {
+  if (!nextColor) return 0;
+  for (const child of entry.node.children) {
+    const mv = moveOf(child, size);
+    if (mv) return T.col(mv.color) === nextColor ? 1 : 0;
+  }
+  return 0;
+}
+
+// Tie-break toward a commented node with continuation.
+function quality(node) {
+  return (node.props.C ? 2 : 0) + Math.min(node.children.length, 1);
 }
 
 // Single best match across all corners (deepest), with its mainline
@@ -207,11 +249,64 @@ function subset(stones, Q) {
   return true;
 }
 
-// Prefer more stones; tie-break toward a commented node with more children.
-function better(entry, prev) {
-  if (entry.stones.length !== prev.stones.length) return entry.stones.length > prev.stones.length;
-  const score = (n) => (n.props.C ? 2 : 0) + Math.min(n.children.length, 1);
-  return score(entry.node) > score(prev.node);
+// --- comment localization ---------------------------------------------------
+
+// Rewrite a joseki comment so its colour and direction words match how
+// the joseki actually sits on your board. The dictionary is written for
+// the top-right corner with Black first; under a colour-swapped or
+// rotated/reflected match those words must follow, or the description
+// contradicts the stones. Word boundaries keep "copyright" etc. safe.
+// Corner phrases ("upper right", "bottom-left") localize as a unit, so
+// they come out vertical-word-first in the original's style ("lower
+// left"), never as "left bottom".
+export function localizeComment(text, T, colorSwap) {
+  if (colorSwap) {
+    text = text.replace(/\b(black|white)\b/gi, (m) =>
+      matchCase(m, m[0].toLowerCase() === 'b' ? 'white' : 'black'));
+  }
+  // direction permutation induced by the geometry (corner + diagonal)
+  const dir = {
+    top: boardDir(T, 0, -1),
+    bottom: boardDir(T, 0, 1),
+    left: boardDir(T, 1, 0),
+    right: boardDir(T, -1, 0),
+  };
+  if (dir.top === 'top' && dir.left === 'left') return text; // identity geometry
+  const key = (w) => (w === 'upper' ? 'top' : w === 'lower' ? 'bottom' : w);
+  // "upper"/"lower" style is preserved when the mapped word is vertical
+  const styled = (orig, mapped) =>
+    /^(upper|lower)$/.test(orig) && (mapped === 'top' || mapped === 'bottom')
+      ? (mapped === 'top' ? 'upper' : 'lower')
+      : mapped;
+  return text.replace(
+    /\b(upper|lower|top|bottom)([ -])(left|right)\b|\b(upper|lower|top|bottom|left|right)\b/gi,
+    (m, v, sep, h, single) => {
+      if (single !== undefined) {
+        const lw = single.toLowerCase();
+        return matchCase(single, styled(lw, dir[key(lw)]));
+      }
+      // a corner phrase maps to a corner: one mapped word is vertical,
+      // the other horizontal — reorder vertical-first
+      const mapped = [dir[key(v.toLowerCase())], dir[h.toLowerCase()]];
+      const vert = mapped.find((w) => w === 'top' || w === 'bottom');
+      const horiz = mapped.find((w) => w === 'left' || w === 'right');
+      return matchCase(v, styled(v.toLowerCase(), vert)) + sep + matchCase(h, horiz);
+    },
+  );
+}
+
+// The board direction a canonical (dict-frame) step maps to under T.
+function boardDir(T, du, dv) {
+  const [ax, ay] = T.toBoard(5, 5);
+  const [bx, by] = T.toBoard(5 + du, 5 + dv);
+  if (bx !== ax) return bx > ax ? 'right' : 'left';
+  return by > ay ? 'bottom' : 'top'; // board y grows downward
+}
+
+function matchCase(orig, repl) {
+  if (orig === orig.toUpperCase()) return repl.toUpperCase();
+  if (orig[0] === orig[0].toUpperCase()) return repl[0].toUpperCase() + repl.slice(1);
+  return repl;
 }
 
 // The matched node's mainline continuation, mapped onto your board.
