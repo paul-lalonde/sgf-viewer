@@ -439,6 +439,28 @@ function followWgfLink(k, text) {
   if (target) navigateWgf(target);
 }
 
+// One step "ahead": the next tree node when there is one; at the end of
+// a .wgf record's line, the node's YF "Forward" target, else its last
+// link (Dojo: the > button "corresponds to clicking the last underlined
+// phrase" — a contents page or chapter end continues by link, often
+// into another record).
+function advanceGame() {
+  if (!state.game) return;
+  if (state.game.next()) return;
+  if (!state.isWgf) return;
+  const node = state.game.current;
+  const yf = (node.props.YF || [])[0];
+  if (yf) {
+    navigateWgf(yf.includes(':') ? parseLinkTarget(yf) : { name: yf });
+    return;
+  }
+  const order = []; // distinct link texts, in order of first appearance
+  for (const t of tokenizeComment((node.props.C || []).join('\n'))) {
+    if (t.link && !order.includes(t.text)) order.push(t.text);
+  }
+  if (order.length) followWgfLink(order.length - 1, order[order.length - 1]);
+}
+
 // Case-insensitive node-name lookup in the current file.
 function findWgfName(name) {
   if (!state.wgfNames) return null;
@@ -548,7 +570,7 @@ function quizClick(x, y) {
   // to the next turn (Dojo: "click to get to the next turn").
   if (state.quizSolved === node) {
     state.quizSolved = null;
-    state.game.next();
+    advanceGame(); // a record-final quiz continues via its YF / last link
     refresh();
     return;
   }
@@ -697,7 +719,8 @@ function onBoardClick(x, y) {
   if (state.isWgf && state.tool === 'play') {
     const child = game.childAt(x, y);
     if (child) game.goTo(child);
-    if (child || game.next()) refresh();
+    else advanceGame();
+    refresh();
     return;
   }
   if (state.tool === 'play') {
@@ -1528,7 +1551,7 @@ const MOVES = {
   'b-start': (g) => g.toStart(),
   'b-back10': (g) => g.back(10),
   'b-prev': (g) => g.prev(),
-  'b-next': (g) => g.next(),
+  'b-next': () => advanceGame(),
   'b-fwd10': (g) => g.forward(10),
   'b-end': (g) => g.toEnd(),
   'b-varup': (g) => g.variation(-1),
@@ -1557,8 +1580,8 @@ setFilesHidden(localStorage.getItem('sgf-nofiles') === '1');
 
 const KEYS = {
   ArrowLeft: () => state.game?.prev(),
-  ArrowRight: () => state.game?.next(),
-  ' ': () => state.game?.next(), // Dojo: "SPACE bar: same as the > button"
+  ArrowRight: () => advanceGame(),
+  ' ': () => advanceGame(), // Dojo: "SPACE bar: same as the > button"
   ArrowUp: () => state.game?.variation(-1),
   ArrowDown: () => state.game?.variation(1),
   Home: () => state.game?.toStart(),
