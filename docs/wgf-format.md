@@ -167,7 +167,7 @@ layout code). This is the one irregularity in the table; see Open Questions.
 | `YA` | answer list (§5.4) | **quiz** — "find **all** the correct points / lines" | interactive find-all quiz |
 | `YG` | `[index:]target` list | hyperlink **Goto** targets, paired with `_…_` links in the comment; `target` = `:NodeName` or `:B:file.wgf:.label` | resolve & navigate |
 | `YF` | node name | **Forward** target — the "Next"/"Click here" continuation | resolve & navigate |
-| `YB` / `YW` | point list | black / white stones of an illustrated **continuation** | → translucent ghost stones (numbered by any `LB` on the same point) |
+| `YB` / `YW` | point list | black / white stones of an illustrated **continuation** | → translucent ghost stones (numbered by any `LB` on the same point); the numbered sequence replays one stone at a time via the *step* button (Dojo's STEP) |
 | `YO` `YS` | answer list (§5.4) | **staged** quiz — the score-`0` entries are consumed in file order ("pick A–D in order", guided playouts); `YS` interleaves `pt@b`/`pt@w` stone placements | staged quiz with placements (§5.4) |
 | `YX` | `0`/`1` | a per-node flag on game nodes (inferred: test mode) | ignored |
 | `YC` | one integer | counter near "back" links (inferred) | ignored |

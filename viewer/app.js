@@ -225,6 +225,33 @@ function splitFor(node) {
   return xc === undefined ? null : xcSplit(xc, state.game.size);
 }
 
+// A node's numbered ghost stones in playing order (the steppable
+// "illustrated sequence" — Dojo's STEP button replays it).
+function ghostSequence(ghosts) {
+  return (ghosts || [])
+    .filter((g) => /^\d+$/.test(g.label))
+    .sort((a, b) => parseInt(a.label, 10) - parseInt(b.label, 10));
+}
+
+// The STEP button (Dojo): first press takes the numbered sequence back,
+// each further press replays one stone; past the end, the whole
+// sequence shows again.
+function stepGhosts() {
+  if (!state.game) return;
+  const node = state.game.current;
+  const seq = ghostSequence(annotationOverlays(node, state.game.size).ghosts);
+  if (!seq.length) return;
+  if (state.ghostStepNode !== node || state.ghostStep == null) {
+    state.ghostStepNode = node;
+    state.ghostStep = 0; // take the moves back; replay from the start
+  } else {
+    state.ghostStep = state.ghostStep + 1 >= seq.length ? null : state.ghostStep + 1;
+  }
+  feedback('', state.ghostStep == null ? '' : `sequence: ${state.ghostStep}/${seq.length}`);
+  refresh();
+}
+$('b-step').addEventListener('click', stepGhosts);
+
 // Board annotations carried by a node: a shaded region (TT), lines and
 // direction arrows (LN/LR plain, LS arrow), and continuation ghost stones
 // (YB/YW black/white, numbered by any LB label on the same point).
@@ -296,7 +323,20 @@ function refresh() {
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
   board.setRegions(ov.regions);
   board.setLines(revealLines ? (ov.lines || []).concat(revealLines) : ov.lines);
-  board.setWgfGhosts(ov.ghosts);
+  // Dojo STEP: a slide's numbered ghost sequence replays one stone at a
+  // time; null shows the whole sequence (the default)
+  const seq = ghostSequence(ov.ghosts);
+  if (state.ghostStepNode !== game.current) {
+    state.ghostStepNode = null;
+    state.ghostStep = null;
+  }
+  let ghosts = ov.ghosts;
+  if (state.ghostStep != null && seq.length) {
+    const shown = new Set(seq.slice(0, state.ghostStep));
+    ghosts = ov.ghosts.filter((g) => !/^\d+$/.test(g.label) || shown.has(g));
+  }
+  $('b-step').hidden = !(state.isWgf && seq.length >= 2);
+  board.setWgfGhosts(ghosts?.length ? ghosts : null);
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
   if (state.scoreNode && state.scoreNode !== game.current) clearScore();
@@ -1603,6 +1643,7 @@ const KEYS = {
   s: () => toggleScore(),
   m: () => setNumbers(!board.showNumbers),
   j: () => setJosekiMode(!state.joseki),
+  '.': () => stepGhosts(),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
