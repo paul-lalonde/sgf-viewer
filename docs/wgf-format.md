@@ -72,10 +72,13 @@ or sequence written inside one `;` node, e.g.
 order is the **order written in the file** (the colours interleave
 correctly there even when a serializer would group them by property).
 
-> **Viewer:** the SGF parser records `moveSeq` (colour+point in file order);
-> `expandPackedMoves()` splits such a node into a normal one-move-per-node
-> chain. Setup (`AE`/`AB`/`AW`) stays on the first node; comment/labels/quiz
-> move to the last.
+> **Viewer:** the SGF parser records `moveSeq` (colour+point in file order)
+> and the node **keeps** its packed sequence — the position engine replays
+> every move (setup applies first), the tree shows the node as one cell
+> labelled with its move range, and the *step* button takes the sequence
+> back and replays it move by move (Dojo's STEP). See
+> `viewer/timeline.design.md`. Saving as `.sgf` splits the node into legal
+> one-move nodes.
 
 ---
 
@@ -98,8 +101,8 @@ and the "real" continuation is named by a `YF` ("Next"/"Click here") target
 (see §5.5). A faithful reader must follow the link graph, not just
 `children[0]`.
 
-> **Viewer:** we keep tree-walking as the primary UI but rewrite two cases
-> at load: (a) split packed openings, and (b) `rerouteGameLine()` — when a
+> **Viewer:** we keep tree-walking as the primary UI but rewrite one case
+> at load: `rerouteGameLine()` — when a
 > move node's `YF` target is a move node further down its own mainline,
 > separated only by setup nodes, we splice it in as the continuation and
 > demote the inline reference diagrams to an off-line branch (still reachable

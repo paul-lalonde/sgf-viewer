@@ -38,11 +38,14 @@ export class Game {
     return nodes.reverse();
   }
 
-  // Replay from the root to the current node. Returns
+  // Replay from the root to the current node. A node may carry a whole
+  // packed sequence (.wgf game tests) — every move replays in file
+  // order; `moveCap` limits how many of the CURRENT node's own moves
+  // apply (the STEP control; ancestors always replay in full). Returns
   // {grid, lastMove, moveNumber, captures, marks, moveNumbers}, where
   // moveNumbers[y][x] is the move that placed the stone currently there
   // (0 = none / setup stone), for optional on-stone numbering.
-  position() {
+  position(moveCap = Infinity) {
     const grid = emptyGrid(this.size);
     const nums = emptyGrid(this.size); // currently-shown number (0 = none)
     const lastPlay = emptyGrid(this.size); // last move ever played here (kept through captures)
@@ -52,27 +55,31 @@ export class Game {
     const captures = { [BLACK]: 0, [WHITE]: 0 };
     for (const node of this.path()) {
       applySetup(grid, node, this.size, nums);
-      const mv = moveOf(node, this.size);
-      if (!mv) {
+      const moves = movesOf(node, this.size);
+      if (!moves.length) {
         // old demo lines add stones via AB/AW: ring the added stone
         const setup = singleSetup(node, this.size);
         if (setup) lastMove = setup;
         continue;
       }
-      moveNumber++;
-      if (mv.pass) {
-        lastMove = null;
-        continue;
+      const cap = node === this.current ? moveCap : Infinity;
+      for (const [i, mv] of moves.entries()) {
+        if (i >= cap) break;
+        moveNumber++;
+        if (mv.pass) {
+          lastMove = null;
+          continue;
+        }
+        captures[mv.color] += playMove(grid, mv, nums);
+        if (grid[mv.y][mv.x] === mv.color) {
+          // a point replayed after a capture (ko, recapture) can't show both
+          // numbers — record "earlier move at this now-numbered point"
+          if (lastPlay[mv.y][mv.x]) movesAt.push({ lost: lastPlay[mv.y][mv.x], shown: moveNumber });
+          nums[mv.y][mv.x] = moveNumber;
+          lastPlay[mv.y][mv.x] = moveNumber;
+        }
+        lastMove = mv;
       }
-      captures[mv.color] += playMove(grid, mv, nums);
-      if (grid[mv.y][mv.x] === mv.color) {
-        // a point replayed after a capture (ko, recapture) can't show both
-        // numbers — record "earlier move at this now-numbered point"
-        if (lastPlay[mv.y][mv.x]) movesAt.push({ lost: lastPlay[mv.y][mv.x], shown: moveNumber });
-        nums[mv.y][mv.x] = moveNumber;
-        lastPlay[mv.y][mv.x] = moveNumber;
-      }
-      lastMove = mv;
     }
     return {
       grid, lastMove, moveNumber, captures,
@@ -172,7 +179,7 @@ export class Game {
   lineLength() {
     let count = 0;
     for (let n = this.root; n; n = n.children[Math.min(n.pref ?? 0, n.children.length - 1)]) {
-      if (isMove(n)) count++;
+      count += movesOf(n, this.size).length;
       if (!n.children.length) break;
     }
     return count;
@@ -190,14 +197,14 @@ export class Game {
   // --- editing ---------------------------------------------------------
 
   // Whose turn at the current node: a PL (player-to-play) property wins,
-  // else opposite of the last move played, else White for handicap
-  // games, else Black.
+  // else opposite of the last move played (a packed node's LAST move),
+  // else White for handicap games, else Black.
   nextColor() {
     for (let n = this.current; n; n = n.parent) {
       const pl = (n.props.PL || [])[0];
       if (pl) return pl.toUpperCase() === 'W' ? WHITE : BLACK;
-      if ('B' in n.props) return WHITE;
-      if ('W' in n.props) return BLACK;
+      const moves = movesOf(n, this.size);
+      if (moves.length) return moves[moves.length - 1].color === BLACK ? WHITE : BLACK;
     }
     return parseInt(this.rootProp('HA') || '0', 10) > 1 ? WHITE : BLACK;
   }
@@ -265,7 +272,8 @@ export class Game {
   }
 
   // Flatten the path to GTP plays for an engine: setup stones become
-  // plays (KataGo accepts consecutive same-color moves). AE (clearing a
+  // plays (KataGo accepts consecutive same-color moves), and a packed
+  // node contributes every one of its moves in order. AE (clearing a
   // point) has no GTP equivalent and marks the position unsupported.
   engineMoves() {
     const moves = [];
@@ -279,8 +287,7 @@ export class Game {
           }
         }
       }
-      const mv = moveOf(node, this.size);
-      if (mv) {
+      for (const mv of movesOf(node, this.size)) {
         moves.push([mv.color === BLACK ? 'B' : 'W', mv.pass ? 'pass' : gtpVertex(mv.x, mv.y, this.size)]);
       }
     }
@@ -319,12 +326,23 @@ export function isMove(node) {
   return 'B' in node.props || 'W' in node.props;
 }
 
+// A node's moves in played order: the parser's moveSeq when several
+// B/W are packed into one node (.wgf game tests — file order, colours
+// interleaved as written), else the single B/W move, else [].
+export function movesOf(node, size) {
+  const one = (prop, value) => {
+    const pt = parsePoint(value || '', size);
+    const color = prop === 'B' ? BLACK : WHITE;
+    return pt ? { ...pt, color } : { color, pass: true };
+  };
+  if (node.moveSeq) return node.moveSeq.map(([prop, value]) => one(prop, value));
+  const prop = 'B' in node.props ? 'B' : 'W' in node.props ? 'W' : null;
+  return prop ? [one(prop, node.props[prop][0])] : [];
+}
+
+// The node's first move (a packed node may lead with either colour).
 export function moveOf(node, size) {
-  const color = 'B' in node.props ? BLACK : 'W' in node.props ? WHITE : null;
-  if (!color) return null;
-  const value = node.props[color === BLACK ? 'B' : 'W'][0] || '';
-  const pt = parsePoint(value, size);
-  return pt ? { ...pt, color } : { color, pass: true };
+  return movesOf(node, size)[0] || null;
 }
 
 // Verdict for a solution-tree leaf, per common tsumego conventions:

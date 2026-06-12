@@ -47,7 +47,6 @@ export function parseWgf(text) {
     if (!r.props.SZ) r.props.SZ = [fileSize];
     snapshotSource(r); // stash original Dojo props before we transform them
     convertSetup(r, parseInt(r.props.SZ[0], 10) || 19);
-    expandPackedMoves(r);
     rerouteGameLine(r);
   }
   return records;
@@ -73,41 +72,10 @@ function snapshotSource(root) {
 }
 
 // Dojo "game test" records pack a whole opening as many B[]/W[] moves in
-// one node. Split such a node into a proper one-move-per-node chain (using
-// the parser's moveSeq to keep order); the comment/links/marks move to the
-// final move, where the test actually begins.
-function expandPackedMoves(root) {
-  const stack = [root];
-  while (stack.length) {
-    const n = stack.pop();
-    const seq = n.moveSeq;
-    if (seq && seq.length > 1) {
-      const origChildren = n.children;
-      delete n.props.B;
-      delete n.props.W;
-      delete n.moveSeq;
-      n.props[seq[0][0]] = [seq[0][1]];
-      let cur = n;
-      for (let i = 1; i < seq.length; i++) {
-        // split moves share the original packed node's source
-        cur.children = [{ props: { [seq[i][0]]: [seq[i][1]] }, parent: cur, children: [], source: n.source }];
-        cur = cur.children[0];
-      }
-      cur.children = origChildren;
-      for (const c of origChildren) c.parent = cur;
-      // setup (AE/AB/AW) stays on the first node so it applies before the
-      // moves; the comment/labels/marks move to the final move.
-      for (const k of Object.keys(n.props)) {
-        if (['N', 'SZ', 'B', 'W', 'AE', 'AB', 'AW'].includes(k)) continue;
-        cur.props[k] = n.props[k];
-        delete n.props[k];
-      }
-      stack.push(...origChildren);
-    } else {
-      stack.push(...n.children);
-    }
-  }
-}
+// one node. The node KEEPS its packed sequence (the parser's moveSeq
+// preserves play order): the position engine replays every move, and the
+// STEP control walks them one by one — see timeline.design.md. (An
+// earlier version split such nodes into synthetic one-move chains.)
 
 // In a game test the real game starts at the YF "Click here" target, which
 // the file places after inline reference diagrams (.string defn / .atd —

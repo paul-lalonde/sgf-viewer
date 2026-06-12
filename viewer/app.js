@@ -2,7 +2,7 @@
 // comment display.
 
 import { Board } from './board.js';
-import { Game, isMove, leafVerdict, gtpPoint, moveOf, parsePoint } from './game.js';
+import { Game, leafVerdict, gtpPoint, moveOf, movesOf, parsePoint } from './game.js';
 
 import { buildIndex, matchAll as matchJosekiAll, localizeComment, normalizeLabelRefs, childStone, childLetter, nodeMarks } from './joseki.js';
 import { parseWgf, recordTitle, buildNameIndex, parseLinkTarget, tokenizeComment, buildResponses, propsToText, xsProse, xcSplit } from './wgf.js';
@@ -225,32 +225,36 @@ function splitFor(node) {
   return xc === undefined ? null : xcSplit(xc, state.game.size);
 }
 
-// A node's numbered ghost stones in playing order (the steppable
-// "illustrated sequence" — Dojo's STEP button replays it).
-function ghostSequence(ghosts) {
-  return (ghosts || [])
+// A node's steppable timeline: its packed moves (when it carries a
+// whole sequence) followed by its numbered ghost stones in playing
+// order — the two ways Dojo illustrates a numbered sequence.
+function nodeTimeline(node, ov) {
+  const moves = movesOf(node, state.game.size);
+  const ghosts = (ov?.ghosts || [])
     .filter((g) => /^\d+$/.test(g.label))
     .sort((a, b) => parseInt(a.label, 10) - parseInt(b.label, 10));
+  return { moveCount: moves.length > 1 ? moves.length : 0, ghosts };
 }
 
 // The STEP button (Dojo): first press takes the numbered sequence back,
-// each further press replays one stone; past the end, the whole
-// sequence shows again.
-function stepGhosts() {
+// each further press replays one stone (a packed move, then a ghost);
+// past the end, the whole display returns.
+function stepTimeline() {
   if (!state.game) return;
   const node = state.game.current;
-  const seq = ghostSequence(annotationOverlays(node, state.game.size).ghosts);
-  if (!seq.length) return;
-  if (state.ghostStepNode !== node || state.ghostStep == null) {
-    state.ghostStepNode = node;
-    state.ghostStep = 0; // take the moves back; replay from the start
+  const tl = nodeTimeline(node, annotationOverlays(node, state.game.size));
+  const total = tl.moveCount + tl.ghosts.length;
+  if (total < 2) return;
+  if (state.stepNode !== node || state.step == null) {
+    state.stepNode = node;
+    state.step = 0; // take the sequence back; replay from the start
   } else {
-    state.ghostStep = state.ghostStep + 1 >= seq.length ? null : state.ghostStep + 1;
+    state.step = state.step + 1 >= total ? null : state.step + 1;
   }
-  feedback('', state.ghostStep == null ? '' : `sequence: ${state.ghostStep}/${seq.length}`);
+  feedback('', state.step == null ? '' : `sequence: ${state.step}/${total}`);
   refresh();
 }
-$('b-step').addEventListener('click', stepGhosts);
+$('b-step').addEventListener('click', stepTimeline);
 
 // Board annotations carried by a node: a shaded region (TT), lines and
 // direction arrows (LN/LR plain, LS arrow), and continuation ghost stones
@@ -294,7 +298,23 @@ function refresh() {
     board.setQuizFound(null);
     feedback('', ''); // erase the quiz verdict (e.g. the green "✓ Yes")
   }
-  const pos = game.position();
+  const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
+  // Dojo STEP: the node's timeline (packed moves, then numbered ghosts)
+  // replays one stone at a time; null shows everything (the default)
+  const tl = nodeTimeline(game.current, ov);
+  if (state.stepNode !== game.current) {
+    state.stepNode = null;
+    state.step = null;
+  }
+  let moveCap = Infinity;
+  let ghosts = ov.ghosts;
+  if (state.step != null) {
+    moveCap = Math.min(state.step, tl.moveCount);
+    const shown = new Set(tl.ghosts.slice(0, Math.max(0, state.step - tl.moveCount)));
+    ghosts = (ov.ghosts || []).filter((g) => !/^\d+$/.test(g.label) || shown.has(g));
+  }
+  $('b-step').hidden = !(state.isWgf && tl.moveCount + tl.ghosts.length >= 2);
+  const pos = game.position(moveCap);
   // A .wgf quiz node's own marks stay visible — they are the question
   // (clickable letters, "the marked stone"); the answer key lives in the
   // XS display response, whose marks and lines draw only on the reveal.
@@ -310,7 +330,6 @@ function refresh() {
     for (const p of quiz.placed) pos.grid[p.y][p.x] = p.color === 'B' ? BLACK : WHITE;
     board.setQuizFound(quiz.foundOverlay());
   }
-  const ov = annotationOverlays(game.current, game.size); // TT/LN/LR/LS/YB/YW
   // a YB/YW ghost stone carries its LB number itself — drop the plain
   // label mark at that point, or the number draws twice (a big patched
   // label showing through the translucent stone)
@@ -318,24 +337,18 @@ function refresh() {
     const at = new Set(ov.ghosts.map((g) => `${g.x},${g.y}`));
     pos.marks = pos.marks.filter((m) => !(m.type === 'label' && at.has(`${m.x},${m.y}`)));
   }
+  // while STEP has the sequence taken back, the numbers of moves not yet
+  // replayed sit on empty points — hide them so the replay isn't spoiled
+  if (state.step != null) {
+    pos.marks = pos.marks.filter(
+      (m) => !(m.type === 'label' && /^\d+$/.test(m.text) && pos.grid[m.y][m.x] === EMPTY),
+    );
+  }
   board.setPosition(pos);
   board.setView(game.viewRect()); // honor SGF VW board-crop
   board.setSplit(splitFor(game.current)); // Dojo "n-up" quadrant boards
   board.setRegions(ov.regions);
   board.setLines(revealLines ? (ov.lines || []).concat(revealLines) : ov.lines);
-  // Dojo STEP: a slide's numbered ghost sequence replays one stone at a
-  // time; null shows the whole sequence (the default)
-  const seq = ghostSequence(ov.ghosts);
-  if (state.ghostStepNode !== game.current) {
-    state.ghostStepNode = null;
-    state.ghostStep = null;
-  }
-  let ghosts = ov.ghosts;
-  if (state.ghostStep != null && seq.length) {
-    const shown = new Set(seq.slice(0, state.ghostStep));
-    ghosts = ov.ghosts.filter((g) => !/^\d+$/.test(g.label) || shown.has(g));
-  }
-  $('b-step').hidden = !(state.isWgf && seq.length >= 2);
   board.setWgfGhosts(ghosts?.length ? ghosts : null);
   updateGhost();
   // the score overlay belongs to one node; drop it once we move away
@@ -1643,7 +1656,7 @@ const KEYS = {
   s: () => toggleScore(),
   m: () => setNumbers(!board.showNumbers),
   j: () => setJosekiMode(!state.joseki),
-  '.': () => stepGhosts(),
+  '.': () => stepTimeline(),
 };
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1681,9 +1694,11 @@ rowSplitter($('split-edit'), $('editpane'), { pos: 'below', varName: '--edith', 
   }
 })();
 
+// Walk forward until move `target` has been played (a packed node may
+// contain it mid-sequence — stop at the node carrying it).
 function forwardToMove(game, target) {
   let n = 0;
   while (n < target && game.next()) {
-    if (isMove(game.current)) n++;
+    n += movesOf(game.current, game.size).length;
   }
 }

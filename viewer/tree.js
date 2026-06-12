@@ -10,7 +10,7 @@
 // branches) collapse into one "12–45" segment that shows the current
 // move number while you are inside it.
 
-import { isMove, moveOf, singleSetup } from './game.js';
+import { isMove, movesOf, singleSetup } from './game.js';
 import { BLACK } from './colors.js';
 
 // Props that make a node worth showing individually.
@@ -141,7 +141,7 @@ export class TreeView {
       run = [];
     };
     while (node) {
-      if (stepOf(node, this.game.size)) num++;
+      num += stepCount(node, this.game.size);
       if (!node.parent && !isMove(node)) {
         // root placeholder: redundant, the board shows the setup
       } else if (collapsible(node, this.game.size)) {
@@ -187,11 +187,13 @@ export class TreeView {
 
   _moveEl(node, num) {
     const el = document.createElement('span');
-    const mv = moveOf(node, this.game.size);
-    const step = stepOf(node, this.game.size);
+    const moves = movesOf(node, this.game.size);
+    const step = moves[0] || singleSetup(node, this.game.size);
     if (step) {
       el.className = `move ${step.color === BLACK ? 'b' : 'w'}`;
-      el.textContent = step.pass ? `${num}·pass` : String(num);
+      el.textContent = moves.length > 1
+        ? `${num - moves.length + 1}–${num}` // a packed .wgf sequence, one node
+        : step.pass ? `${num}·pass` : String(num);
     } else {
       el.className = 'move setup';
       el.textContent = '·';
@@ -355,15 +357,16 @@ function slideTitle(node, i) {
   return line ? line.slice(0, 70) : `slide ${i}`;
 }
 
-// A "step" is one stone appearing: a move, or a single-stone AB/AW node
-// (how old mgt/IGS reviews encode demonstration lines). Both are
-// numbered sequentially in the tree.
-function stepOf(node, size) {
-  return moveOf(node, size) || singleSetup(node, size);
+// Stones a node adds to the numbering: its moves (a packed .wgf node
+// carries several), or a single-stone AB/AW setup (how old mgt/IGS
+// reviews encode demonstration lines).
+function stepCount(node, size) {
+  return movesOf(node, size).length || (singleSetup(node, size) ? 1 : 0);
 }
 
 function collapsible(node, size) {
   if (node.children.length > 1) return false;
+  if (movesOf(node, size).length > 1) return false; // a packed sequence stands alone
   if (isMove(node)) return !annotated(node);
   if (singleSetup(node, size)) return !annotatedBeyondSetup(node);
   return false;

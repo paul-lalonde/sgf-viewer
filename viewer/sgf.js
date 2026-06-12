@@ -117,10 +117,25 @@ function parseNestedValue(p) {
   return out; // unterminated value
 }
 
-// Serialize a node tree back to SGF text.
+// Serialize a node tree back to SGF text. A packed multi-move node
+// (.wgf — illegal in SGF proper) is split into a chain of one-move
+// nodes, the non-move properties riding on the first.
 export function writeSGF(root) {
   const out = [];
   const writeNode = (n) => {
+    if (n.moveSeq && n.moveSeq.length > 1) {
+      out.push(';');
+      for (const [key, values] of Object.entries(n.props)) {
+        if (key === 'B' || key === 'W') continue;
+        out.push(key, ...values.flatMap((v) => ['[', escapeValue(v), ']']));
+      }
+      n.moveSeq.forEach(([prop, v], i) => {
+        if (i) out.push('\n;');
+        out.push(prop, '[', escapeValue(v), ']');
+      });
+      out.push('\n');
+      return;
+    }
     out.push(';');
     for (const [key, values] of Object.entries(n.props)) {
       out.push(key, ...values.flatMap((v) => ['[', escapeValue(v), ']']));

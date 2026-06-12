@@ -1,10 +1,23 @@
-// wgf.test.js — tests for the WGF helpers (currently the XC layout
-// table; see docs/wgf-format.md §5.2 for the evidence).
+// wgf.test.js — tests for the WGF helpers: the XC layout table (see
+// docs/wgf-format.md §5.2) and the no-tree-surgery parse contract
+// (timeline.design.md R4).
 // Run: node --test viewer/wgf.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { xcSplit } from './wgf.js';
+import { xcSplit, parseWgf } from './wgf.js';
+
+test('[BEHAVIOR] R4: parseWgf keeps a packed node intact — no synthetic nodes', () => {
+  const records = parseWgf(
+    '(;GM[1]FF[4]SZ[19];B[pd]W[dp]B[cd]C[the opening]LB[pd:01]YN[qq:0](;B[qq])(;W[rr]))',
+  );
+  const node = records[0].children[0];
+  assert.equal(node.moveSeq.length, 3); // moves stay packed…
+  assert.equal(node.children.length, 2); // …variations attach to the node itself
+  assert.deepEqual(node.props.C, ['the opening']); // comment stays put
+  assert.deepEqual(node.props.YN, ['qq:0']); // so does the quiz
+  assert.ok(node.source.includes('B[pd]')); // and the source snapshot
+});
 
 test('[BEHAVIOR] XC 2/23 are TOP/BOTTOM: omit the centre row', () => {
   assert.deepEqual(xcSplit('2'), { rows: [9], cols: [] });
